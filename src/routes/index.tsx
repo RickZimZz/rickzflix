@@ -167,31 +167,109 @@ function fmt(t: number) {
   return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
 }
 
-function VideoPlayer({ src }: { src: string }) {
+const Ico = {
+  play: <path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5Z" fill="currentColor" />,
+  pause: <><rect x="6" y="5" width="4" height="14" rx="1.2" fill="currentColor" /><rect x="14" y="5" width="4" height="14" rx="1.2" fill="currentColor" /></>,
+  back: <><path d="M12 5V2L7 6l5 4V7a6 6 0 1 1-6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /><text x="12" y="16.5" fontSize="6.5" textAnchor="middle" fill="currentColor" fontWeight="700">10</text></>,
+  fwd: <><path d="M12 5V2l5 4-5 4V7a6 6 0 1 0 6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /><text x="12" y="16.5" fontSize="6.5" textAnchor="middle" fill="currentColor" fontWeight="700">10</text></>,
+  vol: <><path d="M4 9h3l5-4v14l-5-4H4z" fill="currentColor" /><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" /></>,
+  mute: <><path d="M4 9h3l5-4v14l-5-4H4z" fill="currentColor" /><path d="m16 9 5 6m0-6-5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>,
+  full: <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" />,
+  exitFull: <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" />,
+};
+function I({ d, size = 22 }: { d: React.ReactNode; size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>{d}</svg>;
+}
+
+function VideoPlayer({ src, title }: { src: string; title: string }) {
   const wrap = useRef<HTMLDivElement>(null);
   const vid = useRef<HTMLVideoElement>(null);
-  const [paused, setPaused] = useState(false);
+  const hideT = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [paused, setPaused] = useState(true);
   const [time, setTime] = useState(0);
   const [dur, setDur] = useState(0);
+  const [buffered, setBuffered] = useState(0);
+  const [vol, setVol] = useState(1);
   const [muted, setMuted] = useState(false);
-  const toggle = () => { const v = vid.current; if (!v) return; v.paused ? v.play() : v.pause(); };
-  const skip = (d: number) => { const v = vid.current; if (v) v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + d)); };
-  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else wrap.current?.requestFullscreen(); };
+  const [rate, setRate] = useState(1);
+  const [isFull, setIsFull] = useState(false);
+  const [waiting, setWaiting] = useState(true);
+  const [error, setError] = useState(false);
+  const [show, setShow] = useState(true);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  const poke = () => {
+    setShow(true);
+    clearTimeout(hideT.current);
+    hideT.current = setTimeout(() => { if (vid.current && !vid.current.paused) setShow(false); }, 2800);
+  };
+  const toggle = () => { const v = vid.current; if (!v) return; if (v.paused) v.play().catch(() => {}); else v.pause(); poke(); };
+  const skip = (d: number) => { const v = vid.current; if (!v) return; v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + d)); setFlash(d > 0 ? "+10s" : "-10s"); setTimeout(() => setFlash(null), 600); poke(); };
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else wrap.current?.requestFullscreen?.(); };
+  const setVolume = (n: number) => { const v = vid.current; if (!v) return; v.volume = n; v.muted = n === 0; setVol(n); setMuted(n === 0); };
+  const cycleRate = () => { const rates = [1, 1.25, 1.5, 2, 0.5, 0.75]; const n = rates[(rates.indexOf(rate) + 1) % rates.length] ?? 1; if (vid.current) vid.current.playbackRate = n; setRate(n); };
+
+  useEffect(() => {
+    const onFs = () => setIsFull(!!document.fullscreenElement);
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName === "INPUT" && (e.target as HTMLInputElement).type !== "range") return;
+      if (e.key === " " || e.key === "k") { e.preventDefault(); toggle(); }
+      else if (e.key === "ArrowRight") skip(10);
+      else if (e.key === "ArrowLeft") skip(-10);
+      else if (e.key === "f") full();
+      else if (e.key === "m" && vid.current) { vid.current.muted = !vid.current.muted; setMuted(vid.current.muted); }
+    };
+    document.addEventListener("fullscreenchange", onFs);
+    window.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("fullscreenchange", onFs); window.removeEventListener("keydown", onKey); clearTimeout(hideT.current); };
+  });
+
+  const pct = dur ? (time / dur) * 100 : 0;
+  const bufPct = dur ? (buffered / dur) * 100 : 0;
+  const volShown = muted ? 0 : vol;
+
   return (
-    <div ref={wrap} className="player-wrap group">
-      <video ref={vid} src={src} autoPlay playsInline className="h-full w-full bg-background" onClick={toggle}
-        onPlay={() => setPaused(false)} onPause={() => setPaused(true)}
-        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDur(e.currentTarget.duration)} />
-      <div className="player-controls">
-        <input type="range" min={0} max={dur || 0} step={0.1} value={time} className="player-range"
-          onChange={(e) => { if (vid.current) vid.current.currentTime = Number(e.target.value); }} />
-        <div className="flex items-center gap-2">
-          <button className="player-btn" onClick={() => skip(-10)} aria-label="Voltar 10s">↺10</button>
-          <button className="player-btn player-btn-main" onClick={toggle} aria-label={paused ? "Reproduzir" : "Pausar"}>{paused ? "▶" : "❚❚"}</button>
-          <button className="player-btn" onClick={() => skip(10)} aria-label="Avançar 10s">10↻</button>
-          <button className="player-btn" onClick={() => { if (vid.current) { vid.current.muted = !muted; setMuted(!muted); } }} aria-label="Som">{muted ? "🔇" : "🔊"}</button>
-          <span className="ml-1 text-xs tabular-nums">{fmt(time)} / {fmt(dur)}</span>
-          <button className="player-btn ml-auto" onClick={full} aria-label="Tela cheia">⛶</button>
+    <div ref={wrap} className={show || paused ? "vp vp-show" : "vp"} onMouseMove={poke} onTouchStart={poke}>
+      <video
+        ref={vid} src={src} autoPlay playsInline preload="auto"
+        className="vp-video" onClick={toggle} onDoubleClick={full}
+        onPlay={() => { setPaused(false); poke(); }} onPause={() => { setPaused(true); setShow(true); }}
+        onWaiting={() => setWaiting(true)} onPlaying={() => setWaiting(false)} onCanPlay={() => setWaiting(false)}
+        onError={() => { setError(true); setWaiting(false); }}
+        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+        onProgress={(e) => { const b = e.currentTarget.buffered; if (b.length) setBuffered(b.end(b.length - 1)); }}
+        onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
+      />
+      {waiting && !error && <div className="vp-center"><div className="vp-spinner" /></div>}
+      {error && (
+        <div className="vp-center flex-col gap-2 px-6 text-center">
+          <p className="font-display text-2xl">Não foi possível carregar o vídeo</p>
+          <p className="text-sm opacity-80">O link pode ter expirado ou o site de origem bloqueou a reprodução. Atualize o link no painel de administrador.</p>
+        </div>
+      )}
+      {!error && paused && !waiting && (
+        <button className="vp-center vp-bigplay-wrap" onClick={toggle} aria-label="Reproduzir"><span className="vp-bigplay"><I d={Ico.play} size={40} /></span></button>
+      )}
+      {flash && <div className="vp-center pointer-events-none"><span className="vp-flash">{flash}</span></div>}
+
+      <div className="vp-top"><p className="truncate font-display text-xl tracking-wide">{title}</p></div>
+
+      <div className="vp-bar">
+        <div className="vp-progress" style={{ "--p": `${pct}%`, "--b": `${bufPct}%` } as React.CSSProperties}>
+          <input type="range" min={0} max={dur || 0} step={0.1} value={time} aria-label="Tempo do filme"
+            onChange={(e) => { if (vid.current) vid.current.currentTime = Number(e.target.value); setTime(Number(e.target.value)); }} />
+        </div>
+        <div className="flex items-center gap-1 sm:gap-2">
+          <button className="vp-btn" onClick={toggle} aria-label={paused ? "Reproduzir" : "Pausar"}><I d={paused ? Ico.play : Ico.pause} /></button>
+          <button className="vp-btn" onClick={() => skip(-10)} aria-label="Voltar 10 segundos"><I d={Ico.back} /></button>
+          <button className="vp-btn" onClick={() => skip(10)} aria-label="Avançar 10 segundos"><I d={Ico.fwd} /></button>
+          <div className="vp-vol">
+            <button className="vp-btn" onClick={() => setVolume(volShown ? 0 : vol || 1)} aria-label="Som"><I d={volShown ? Ico.vol : Ico.mute} /></button>
+            <input type="range" min={0} max={1} step={0.05} value={volShown} onChange={(e) => setVolume(Number(e.target.value))} aria-label="Volume" style={{ "--p": `${volShown * 100}%` } as React.CSSProperties} />
+          </div>
+          <span className="ml-1 text-xs font-semibold tabular-nums sm:text-sm">{fmt(time)} <span className="opacity-60">/ {fmt(dur)}</span></span>
+          <button className="vp-btn vp-rate ml-auto" onClick={cycleRate} aria-label="Velocidade">{rate}x</button>
+          <button className="vp-btn" onClick={full} aria-label="Tela cheia"><I d={isFull ? Ico.exitFull : Ico.full} /></button>
         </div>
       </div>
     </div>
@@ -213,7 +291,7 @@ function Player({ movie, movies, onClose, onPick }: { movie: Movie; movies: Movi
             <iframe key={movie.id} src={e.src} className="h-full w-full" allow="autoplay; fullscreen; encrypted-media" allowFullScreen title={movie.title} />
           </div>
         ) : (
-          <VideoPlayer key={movie.id} src={e.src} />
+          <VideoPlayer key={movie.id} src={e.src} title={movie.title} />
         )}
         <div className="mt-5">
           <div className="flex items-center gap-3"><RatingBadge r={movie.rating} /><span className="text-sm text-muted-foreground">{movie.category}</span></div>
