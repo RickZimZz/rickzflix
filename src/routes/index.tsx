@@ -242,7 +242,9 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
   const poke = () => {
     setShow(true);
     clearTimeout(hideT.current);
-    hideT.current = setTimeout(() => { if (vid.current && !vid.current.paused) setShow(false); }, 2800);
+    hideT.current = setTimeout(() => {
+      if (vid.current && !vid.current.paused) setShow(false);
+    }, 3000);
   };
   const toggle = () => { const v = vid.current; if (!v) return; if (v.paused) v.play().catch(() => {}); else v.pause(); poke(); };
   const skip = (d: number) => { const v = vid.current; if (!v) return; v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + d)); setFlash(d > 0 ? "+10s" : "-10s"); setTimeout(() => setFlash(null), 600); poke(); };
@@ -270,10 +272,16 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
   const volShown = muted ? 0 : vol;
 
   return (
-    <div ref={wrap} className={show || paused ? "vp vp-show" : "vp"} onMouseMove={poke} onTouchStart={poke}>
+    <div
+      ref={wrap}
+      className={show || paused ? "vp vp-show" : "vp"}
+      onMouseMove={poke}
+      onTouchStart={poke}
+      onClick={poke}
+    >
       <video
         ref={vid} src={src} autoPlay playsInline preload="auto"
-        className="vp-video" onClick={toggle} onDoubleClick={full}
+        className="vp-video" onClick={() => { if (!show && !paused) poke(); else toggle(); }} onDoubleClick={full}
         onPlay={() => { setPaused(false); poke(); }} onPause={() => { setPaused(true); setShow(true); }}
         onWaiting={() => setWaiting(true)} onPlaying={() => setWaiting(false)} onCanPlay={() => setWaiting(false)}
         onError={() => { setError(true); setWaiting(false); }}
