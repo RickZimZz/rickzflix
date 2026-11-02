@@ -26,7 +26,6 @@ type Movie = {
   description: string;
   rating: string;
   year: number | null;
-  views_count: number;
 };
 
 const RATINGS = ["Livre", "10", "12", "14", "16", "18"];
@@ -62,23 +61,8 @@ function Index() {
   const [dark, setDark] = useState(true);
   const [onlineCount, setOnlineCount] = useState(0);
 
-  const openMovie = async (movie: Movie) => {
+  const openMovie = (movie: Movie) => {
     setPlaying(movie);
-    let visitorId = localStorage.getItem("rickzflix-visitor-id");
-    if (!visitorId) {
-      visitorId = typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `visitor-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      localStorage.setItem("rickzflix-visitor-id", visitorId);
-    }
-    const { data, error } = await supabase.rpc("register_movie_view", {
-      p_movie_id: movie.id,
-      p_visitor_id: visitorId,
-    });
-    if (!error && typeof data === "number") {
-      setMovies((current) => current.map((item) => item.id === movie.id ? { ...item, views_count: data } : item));
-      setPlaying((current) => current?.id === movie.id ? { ...current, views_count: data } : current);
-    }
   };
   useEffect(() => {
     const saved = localStorage.getItem("theme");
