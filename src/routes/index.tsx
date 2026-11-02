@@ -75,15 +75,9 @@ function Index() {
       p_movie_id: movie.id,
       p_visitor_id: visitorId,
     });
-    if (error) {
-      console.error("RickZFlix: não foi possível registrar a visualização:", error.message);
-      return;
-    }
-    // O Supabase pode devolver colunas bigint como string dependendo do cliente.
-    const views = Number(data);
-    if (Number.isFinite(views)) {
-      setMovies((current) => current.map((item) => item.id === movie.id ? { ...item, views_count: views } : item));
-      setPlaying((current) => current?.id === movie.id ? { ...current, views_count: views } : current);
+    if (!error && typeof data === "number") {
+      setMovies((current) => current.map((item) => item.id === movie.id ? { ...item, views_count: data } : item));
+      setPlaying((current) => current?.id === movie.id ? { ...current, views_count: data } : current);
     }
   };
   useEffect(() => {
