@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { addMovie, deleteMovie, verifyAdmin } from "@/lib/movies.functions";
+import { addMovie, deleteMovie, updateMovie, verifyAdmin } from "@/lib/movies.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -323,6 +323,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
   const [busy, setBusy] = useState(false);
   const empty = { title: "", cover_url: "", video_url: "", category: "", description: "", rating: "Livre" };
   const [form, setForm] = useState(empty);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [adminQuery, setAdminQuery] = useState("");
   const adminList = movies.filter((m) => m.title.toLowerCase().includes(adminQuery.trim().toLowerCase()) || m.category.toLowerCase().includes(adminQuery.trim().toLowerCase()));
 
@@ -335,9 +336,38 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setBusy(true);
-    try { await addMovie({ data: { ...form, password } }); setForm(empty); onChange(); }
-    catch { setError("Não foi possível salvar. Verifique se os links são válidos (começando com https://)."); }
+    try {
+      if (editingId) {
+        await updateMovie({ data: { ...form, id: editingId, password } });
+      } else {
+        await addMovie({ data: { ...form, password } });
+      }
+      setForm(empty);
+      setEditingId(null);
+      onChange();
+    } catch {
+      setError("Não foi possível salvar. Verifique se os links são válidos (começando com https://).");
+    }
     setBusy(false);
+  };
+
+  const startEdit = (movie: Movie) => {
+    setForm({
+      title: movie.title,
+      cover_url: movie.cover_url,
+      video_url: movie.video_url,
+      category: movie.category,
+      description: movie.description ?? "",
+      rating: movie.rating,
+    });
+    setEditingId(movie.id);
+    setError("");
+  };
+
+  const cancelEdit = () => {
+    setForm(empty);
+    setEditingId(null);
+    setError("");
   };
 
   const remove = async (id: string) => {
@@ -376,7 +406,10 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
               </div>
               <div><label className="field-label">Descrição</label><textarea rows={3} className="field" value={form.description} onChange={set("description")} /></div>
               {error && <p className="text-sm text-destructive">{error}</p>}
-              <button className="btn-primary w-full" disabled={busy}>{busy ? "Salvando…" : "Adicionar filme"}</button>
+              <div className="flex gap-2">
+                <button className="btn-primary flex-1" disabled={busy}>{busy ? "Salvando…" : editingId ? "Salvar alterações" : "Adicionar filme"}</button>
+                {editingId && <button type="button" className="btn-ghost" onClick={cancelEdit} disabled={busy}>Cancelar</button>}
+              </div>
             </form>
             {movies.length > 0 && (
               <div className="mt-6">
@@ -388,6 +421,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
                   <div key={m.id} className="flex items-center gap-3 rounded-md bg-secondary p-2">
                     <img src={m.cover_url} alt="" className="h-12 w-9 rounded object-cover" />
                     <div className="min-w-0 flex-1"><p className="truncate text-sm">{m.title}</p><p className="truncate text-xs text-muted-foreground">{m.category} · {m.rating === "Livre" ? "Livre" : `${m.rating} anos`}</p></div>
+                    <button className="text-sm text-primary" onClick={() => startEdit(m)}>Editar</button>
                     <button className="text-sm text-destructive" onClick={() => remove(m.id)}>Remover</button>
                   </div>
                 ))}
