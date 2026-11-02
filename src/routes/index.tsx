@@ -58,6 +58,7 @@ function Index() {
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [dark, setDark] = useState(true);
+  const [onlineCount, setOnlineCount] = useState(0);
   useEffect(() => {
     const saved = localStorage.getItem("theme");
     if (saved === "light") setDark(false);
@@ -73,6 +74,37 @@ function Index() {
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    // Supabase Presence counts active site sessions across browsers and devices.
+    const sessionKey = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `visitor-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const channel = supabase.channel("rickzflix-online-visitors", {
+      config: { presence: { key: sessionKey } },
+    });
+
+    const updateCount = () => {
+      const presence = channel.presenceState();
+      const count = Object.values(presence).reduce((total, sessions) => total + sessions.length, 0);
+      setOnlineCount(count);
+    };
+
+    channel
+      .on("presence", { event: "sync" }, updateCount)
+      .on("presence", { event: "join" }, updateCount)
+      .on("presence", { event: "leave" }, updateCount)
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ online_at: new Date().toISOString() });
+          updateCount();
+        }
+      });
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, []);
 
   const categories = useMemo(() => ["Todos", ...Array.from(new Set(movies.map((m) => m.category)))], [movies]);
   const grouped = useMemo(() => {
@@ -154,6 +186,13 @@ function Index() {
         ))}
       </main>
 
+      <footer className="site-footer">
+        <p>Todos os direitos reservados © {new Date().getFullYear()} RickzFlix.</p>
+        <span className="site-online" aria-live="polite">
+          <span className="site-online-dot" aria-hidden="true" />
+          <span aria-hidden="true">👤</span> {onlineCount} {onlineCount === 1 ? "online" : "online"}
+        </span>
+      </footer>
       {playing && <Player movie={playing} movies={movies} onClose={() => setPlaying(null)} onPick={setPlaying} />}
       {adminOpen && <AdminPanel movies={movies} onClose={() => setAdminOpen(false)} onChange={load} />}
     </div>
