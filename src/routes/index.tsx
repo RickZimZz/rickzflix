@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { addMovie, deleteMovie, verifyAdmin } from "@/lib/movies.functions";
 
@@ -154,29 +154,85 @@ function Index() {
         ))}
       </main>
 
-      {playing && <Player movie={playing} onClose={() => setPlaying(null)} />}
+      {playing && <Player movie={playing} movies={movies} onClose={() => setPlaying(null)} onPick={setPlaying} />}
       {adminOpen && <AdminPanel movies={movies} onClose={() => setAdminOpen(false)} onChange={load} />}
     </div>
   );
 }
 
-function Player({ movie, onClose }: { movie: Movie; onClose: () => void }) {
-  const e = embedUrl(movie.video_url);
+function fmt(t: number) {
+  if (!isFinite(t)) return "0:00";
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = Math.floor(t % 60);
+  const ss = String(sec).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+function VideoPlayer({ src }: { src: string }) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const vid = useRef<HTMLVideoElement>(null);
+  const [paused, setPaused] = useState(false);
+  const [time, setTime] = useState(0);
+  const [dur, setDur] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const toggle = () => { const v = vid.current; if (!v) return; v.paused ? v.play() : v.pause(); };
+  const skip = (d: number) => { const v = vid.current; if (v) v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + d)); };
+  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else wrap.current?.requestFullscreen(); };
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="w-full max-w-5xl" onClick={(ev) => ev.stopPropagation()}>
-        <div className="mb-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3"><RatingBadge r={movie.rating} /><h2 className="font-display text-3xl">{movie.title}</h2></div>
-          <button className="btn-ghost" onClick={onClose}>Fechar ✕</button>
+    <div ref={wrap} className="player-wrap group">
+      <video ref={vid} src={src} autoPlay playsInline className="h-full w-full bg-background" onClick={toggle}
+        onPlay={() => setPaused(false)} onPause={() => setPaused(true)}
+        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDur(e.currentTarget.duration)} />
+      <div className="player-controls">
+        <input type="range" min={0} max={dur || 0} step={0.1} value={time} className="player-range"
+          onChange={(e) => { if (vid.current) vid.current.currentTime = Number(e.target.value); }} />
+        <div className="flex items-center gap-2">
+          <button className="player-btn" onClick={() => skip(-10)} aria-label="Voltar 10s">↺10</button>
+          <button className="player-btn player-btn-main" onClick={toggle} aria-label={paused ? "Reproduzir" : "Pausar"}>{paused ? "▶" : "❚❚"}</button>
+          <button className="player-btn" onClick={() => skip(10)} aria-label="Avançar 10s">10↻</button>
+          <button className="player-btn" onClick={() => { if (vid.current) { vid.current.muted = !muted; setMuted(!muted); } }} aria-label="Som">{muted ? "🔇" : "🔊"}</button>
+          <span className="ml-1 text-xs tabular-nums">{fmt(time)} / {fmt(dur)}</span>
+          <button className="player-btn ml-auto" onClick={full} aria-label="Tela cheia">⛶</button>
         </div>
-        <div className="aspect-video w-full overflow-hidden rounded-lg bg-card">
-          {e.type === "iframe" ? (
-            <iframe src={e.src} className="h-full w-full" allow="autoplay; fullscreen; encrypted-media" allowFullScreen title={movie.title} />
-          ) : (
-            <video src={e.src} controls autoPlay className="h-full w-full" />
-          )}
+      </div>
+    </div>
+  );
+}
+
+function Player({ movie, movies, onClose, onPick }: { movie: Movie; movies: Movie[]; onClose: () => void; onPick: (m: Movie) => void }) {
+  const e = embedUrl(movie.video_url);
+  const suggestions = useMemo(
+    () => movies.filter((m) => m.id !== movie.id).sort(() => Math.random() - 0.5).slice(0, 8),
+    [movie.id, movies],
+  );
+  return (
+    <div className="modal-backdrop items-start" onClick={onClose}>
+      <div className="my-6 w-full max-w-5xl" onClick={(ev) => ev.stopPropagation()}>
+        <div className="mb-3 flex justify-end"><button className="btn-ghost" onClick={onClose}>Fechar ✕</button></div>
+        {e.type === "iframe" ? (
+          <div className="aspect-video w-full overflow-hidden rounded-lg bg-card">
+            <iframe key={movie.id} src={e.src} className="h-full w-full" allow="autoplay; fullscreen; encrypted-media" allowFullScreen title={movie.title} />
+          </div>
+        ) : (
+          <VideoPlayer key={movie.id} src={e.src} />
+        )}
+        <div className="mt-5">
+          <div className="flex items-center gap-3"><RatingBadge r={movie.rating} /><span className="text-sm text-muted-foreground">{movie.category}</span></div>
+          <h2 className="mt-2 font-display text-4xl leading-none">{movie.title}</h2>
+          {movie.description && <p className="mt-3 max-w-3xl text-muted-foreground">{movie.description}</p>}
         </div>
-        <p className="mt-4 text-muted-foreground">{movie.category} · {movie.description}</p>
+        {suggestions.length > 0 && (
+          <div className="mt-8">
+            <h3 className="font-display text-2xl tracking-wide">Você também pode gostar</h3>
+            <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3">
+              {suggestions.map((m) => (
+                <button key={m.id} onClick={() => onPick(m)} className="movie-card movie-card-grid group">
+                  <img src={m.cover_url} alt={m.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <div className="movie-card-info"><RatingBadge r={m.rating} /><p className="mt-1 text-left text-sm font-semibold">{m.title}</p></div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
