@@ -102,3 +102,132 @@ html.legacy-tv .vp-video { width: 100% !important; height: 100% !important; obje
   html.legacy-tv h2 { font-size: 30px !important; }
   html.legacy-tv .movie-card { flex-basis: 125px !important; width: 125px !important; height: 188px !important; }
 }
+
+
+/* Extra fallbacks for TV browsers with incomplete flex/grid and utility support. */
+html.legacy-tv .chip {
+  display: inline-block !important;
+  flex: 0 0 auto !important;
+  margin: 0 5px 8px 0 !important;
+  padding: 9px 16px !important;
+  color: #eeeeee !important;
+  background: #292929 !important;
+  border: 1px solid #555555 !important;
+  border-radius: 22px !important;
+  font-size: 15px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+html.legacy-tv .chip-active {
+  color: #ffffff !important;
+  background: #d9433b !important;
+  border-color: #d9433b !important;
+}
+html.legacy-tv main {
+  width: 100% !important;
+  padding: 0 0 55px !important;
+  overflow: hidden !important;
+}
+html.legacy-tv main section {
+  display: block !important;
+  width: 100% !important;
+  margin: 18px 0 32px !important;
+  padding: 0 4% !important;
+}
+html.legacy-tv main section > h3 {
+  display: block !important;
+  margin: 12px 0 14px !important;
+  padding: 0 !important;
+  color: #ffffff !important;
+  font-size: 27px !important;
+}
+html.legacy-tv main section > div {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-start !important;
+  gap: 18px !important;
+  width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 4px 2px 18px !important;
+}
+html.legacy-tv .movie-card,
+html.legacy-tv .movie-card-grid {
+  display: block !important;
+  position: relative !important;
+  flex: 0 0 170px !important;
+  width: 170px !important;
+  min-width: 170px !important;
+  height: 255px !important;
+  min-height: 255px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  background: #242424 !important;
+  border: 1px solid #444444 !important;
+  border-radius: 8px !important;
+}
+html.legacy-tv .movie-card > img {
+  display: block !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+html.legacy-tv .movie-card-info {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 2 !important;
+  min-height: 58px !important;
+  padding: 9px !important;
+  opacity: 1 !important;
+  color: #ffffff !important;
+  background: rgba(0,0,0,.86) !important;
+}
+html.legacy-tv .movie-card-info p {
+  color: #ffffff !important;
+  font-size: 14px !important;
+  line-height: 1.25 !important;
+}
+html.legacy-tv .movie-card .rating-badge {
+  min-width: 25px !important;
+  min-height: 23px !important;
+  padding: 4px 6px !important;
+}
+html.legacy-tv section.relative.flex.h-\\[70vh\\] {
+  height: 68vh !important;
+  min-height: 440px !important;
+  max-height: 720px !important;
+}
+html.legacy-tv section.relative.flex.h-\\[70vh\\] > img {
+  object-fit: cover !important;
+  object-position: center center !important;
+}
+html.legacy-tv section.relative.flex.h-\\[70vh\\] .hero-fade {
+  background: linear-gradient(to top, #111111 0%, rgba(17,17,17,.82) 27%, rgba(17,17,17,.18) 100%) !important;
+}
+html.legacy-tv .overflow-x-auto {
+  scrollbar-width: auto !important;
+}
+html.legacy-tv button:focus,
+html.legacy-tv a:focus {
+  outline: 3px solid #e34b3f !important;
+  outline-offset: 3px !important;
+}
+@media screen and (min-width: 1200px) {
+  html.legacy-tv .movie-card,
+  html.legacy-tv .movie-card-grid {
+    flex-basis: 190px !important;
+    width: 190px !important;
+    min-width: 190px !important;
+    height: 285px !important;
+    min-height: 285px !important;
+  }
+  html.legacy-tv main section > h3 { font-size: 32px !important; }
+  html.legacy-tv .chip { font-size: 17px !important; padding: 11px 19px !important; }
+}
