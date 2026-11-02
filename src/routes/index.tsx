@@ -351,7 +351,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
 
   useEffect(() => {
     if (authed) void runLinkCheck();
-  }, [authed]);
+  }, [authed, movies]);
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setBusy(true);
@@ -430,6 +430,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
                 Logs {linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length > 0 && <span className="ml-1">({linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length})</span>}
               </button>
             </div>
+            {activeTab === "logs" && error && <p className="mb-3 text-sm text-destructive">{error}</p>}
             {activeTab === "cadastro" && <>
             <form onSubmit={submit} className="space-y-3">
               <div><label className="field-label">Nome do filme</label><input required className="field" value={form.title} onChange={set("title")} /></div>
