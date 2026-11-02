@@ -409,42 +409,49 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="panel" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h2 className="font-display text-3xl tracking-wide">Administrador</h2>
-            {authed && <p className="mt-1 text-xs text-muted-foreground">Gerencie seu catálogo e acompanhe os links dos filmes.</p>}
+      <div className="panel admin-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="admin-glow" aria-hidden="true" />
+        <div className="admin-header mb-6 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <span className="admin-eyebrow">RICKZFLIX · PAINEL DE CONTROLE</span>
+            <h2 className="mt-1 font-display text-4xl tracking-wide sm:text-5xl">Administrador</h2>
+            {authed && <p className="mt-1 text-sm text-muted-foreground">Gerencie seu catálogo e monitore seus links em um só lugar.</p>}
           </div>
-          <button className="btn-ghost" onClick={onClose}>✕</button>
+          <button className="admin-close" aria-label="Fechar administrador" onClick={onClose}>✕</button>
         </div>
         {!authed ? (
-          <form onSubmit={login} className="space-y-4">
-            <label className="field-label">Senha</label>
-            <input type="password" className="field" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+          <form onSubmit={login} className="admin-login space-y-4">
+            <label className="field-label" htmlFor="admin-password">Sua senha de administrador</label>
+            <input id="admin-password" type="password" placeholder="Digite sua senha" className="field admin-field" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <button className="btn-primary w-full" disabled={busy}>Entrar</button>
+            <button className="btn-primary admin-submit w-full" disabled={busy}>{busy ? "Entrando…" : "Acessar painel"} <span aria-hidden="true">→</span></button>
           </form>
         ) : (
           <>
-            <div className="mb-5 grid grid-cols-2 gap-2 rounded-lg bg-secondary p-1">
-              <button type="button" onClick={() => setActiveTab("cadastro")} className={activeTab === "cadastro" ? "btn-primary" : "btn-ghost"}>Cadastrar</button>
-              <button type="button" onClick={() => setActiveTab("logs")} className={activeTab === "logs" ? "btn-primary" : "btn-ghost"}>
-                Logs {linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length > 0 && <span className="ml-1">({linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length})</span>}
+            <div className="admin-stats mb-5 grid grid-cols-3 gap-2">
+              <div className="admin-stat"><span className="admin-stat-icon">▣</span><span className="admin-stat-value">{movies.length}</span><span className="admin-stat-label">Filmes no catálogo</span></div>
+              <div className="admin-stat"><span className="admin-stat-icon admin-good">●</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "ok").length}</span><span className="admin-stat-label">Links respondendo</span></div>
+              <div className="admin-stat"><span className="admin-stat-icon admin-alert">!</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length}</span><span className="admin-stat-label">Precisam de atenção</span></div>
+            </div>
+            <div className="admin-tabs mb-6 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setActiveTab("cadastro")} className={activeTab === "cadastro" ? "admin-tab admin-tab-active" : "admin-tab"}><span>＋</span> Cadastrar</button>
+              <button type="button" onClick={() => setActiveTab("logs")} className={activeTab === "logs" ? "admin-tab admin-tab-active" : "admin-tab"}>
+                <span>◷</span> Logs {linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length > 0 && <span className="ml-1">({linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length})</span>}
               </button>
             </div>
             {activeTab === "logs" && error && <p className="mb-3 text-sm text-destructive">{error}</p>}
             {activeTab === "cadastro" && <>
-            <form onSubmit={submit} className="space-y-3">
-              <div><label className="field-label">Nome do filme</label><input required className="field" value={form.title} onChange={set("title")} /></div>
-              <div><label className="field-label">Capa (link da imagem)</label><input required type="url" placeholder="https://..." className="field" value={form.cover_url} onChange={set("cover_url")} /></div>
-              <div><label className="field-label">Link do vídeo</label><input required type="url" placeholder="YouTube, Vimeo, Google Drive ou .mp4" className="field" value={form.video_url} onChange={set("video_url")} /></div>
+            <form onSubmit={submit} className="admin-form space-y-4">
+              <div><label className="field-label">Nome do filme</label><input required className="field admin-field" placeholder="Ex.: Harry Potter e a Pedra Filosofal" value={form.title} onChange={set("title")} /></div>
+              <div><label className="field-label">Capa (link da imagem)</label><input required type="url" placeholder="https://..." className="field admin-field" placeholder="https://..." value={form.cover_url} onChange={set("cover_url")} /></div>
+              <div><label className="field-label">Link do vídeo</label><input required type="url" placeholder="YouTube, Vimeo, Google Drive ou .mp4" className="field admin-field" value={form.video_url} onChange={set("video_url")} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="field-label">Categoria</label><input required list="cats" className="field" value={form.category} onChange={set("category")} />
+                <div><label className="field-label">Categoria</label><input required list="cats" className="field admin-field" placeholder="Ex.: Aventura" value={form.category} onChange={set("category")} />
                   <datalist id="cats">{Array.from(new Set(movies.map((m) => m.category))).map((c) => <option key={c} value={c} />)}</datalist></div>
                 <div><label className="field-label">Classificação</label>
-                  <select className="field" value={form.rating} onChange={set("rating")}>{RATINGS.map((r) => <option key={r} value={r}>{r === "Livre" ? "Livre" : `${r} anos`}</option>)}</select></div>
+                  <select className="field admin-field" value={form.rating} onChange={set("rating")}>{RATINGS.map((r) => <option key={r} value={r}>{r === "Livre" ? "Livre" : `${r} anos`}</option>)}</select></div>
               </div>
-              <div><label className="field-label">Descrição</label><textarea rows={3} className="field" value={form.description} onChange={set("description")} /></div>
+              <div><label className="field-label">Descrição</label><textarea rows={3} className="field admin-field" placeholder="Uma breve sinopse do filme..." value={form.description} onChange={set("description")} /></div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <div className="flex gap-2">
                 <button className="btn-primary flex-1" disabled={busy}>{busy ? "Salvando…" : editingId ? "Salvar alterações" : "Adicionar filme"}</button>
@@ -452,17 +459,17 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
               </div>
             </form>
             {movies.length > 0 && (
-              <div className="mt-6">
-                <h3 className="field-label">Filmes cadastrados ({movies.length})</h3>
-                <input className="field mb-2" placeholder="Pesquisar nos filmes cadastrados…" value={adminQuery} onChange={(e) => setAdminQuery(e.target.value)} />
+              <div className="admin-library mt-7">
+                <div className="mb-3 flex items-center justify-between gap-3"><h3 className="font-display text-2xl tracking-wide">Seu catálogo <span className="text-sm font-sans text-muted-foreground">({movies.length})</span></h3></div>
+                <input className="field admin-field mb-3" placeholder="Pesquisar nos filmes cadastrados…" value={adminQuery} onChange={(e) => setAdminQuery(e.target.value)} />
                 <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                 {adminList.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme encontrado.</p>}
                 {adminList.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 rounded-md bg-secondary p-2">
+                  <div key={m.id} className="admin-movie-row flex items-center gap-3 rounded-lg p-3">
                     <img src={m.cover_url} alt="" className="h-12 w-9 rounded object-cover" />
                     <div className="min-w-0 flex-1"><p className="truncate text-sm">{m.title}</p><p className="truncate text-xs text-muted-foreground">{m.category} · {m.rating === "Livre" ? "Livre" : `${m.rating} anos`}</p></div>
-                    <button className="text-sm text-primary" onClick={() => startEdit(m)}>Editar</button>
-                    <button className="text-sm text-destructive" onClick={() => remove(m.id)}>Remover</button>
+                    <button className="admin-action admin-edit" onClick={() => startEdit(m)}>Editar</button>
+                    <button className="admin-action admin-remove" onClick={() => remove(m.id)}>Remover</button>
                   </div>
                 ))}
                 </div>
@@ -470,8 +477,8 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
             )}
             </>}
             {activeTab === "logs" && (
-              <section className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+              <section className="admin-logs space-y-4">
+                <div className="admin-section-heading flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="font-semibold">Monitoramento de links</h3>
                     <p className="text-xs text-muted-foreground">A verificação é executada ao entrar no Admin.</p>
@@ -502,7 +509,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
                     const label = item.status === "ok" ? "Respondendo" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Atenção" : "Não verificado";
                     const color = item.status === "ok" ? "text-green-500" : item.status === "expired" ? "text-destructive" : item.status === "warning" ? "text-amber-500" : "text-muted-foreground";
                     return (
-                      <div key={item.id} className="rounded-md bg-secondary p-3">
+                      <div key={item.id} className="admin-log-row rounded-lg p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold">{movie.title}</p>
