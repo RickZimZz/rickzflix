@@ -231,7 +231,7 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
   return (
     <div ref={wrap} className={show || paused ? "vp vp-show" : "vp"} onMouseMove={poke} onTouchStart={poke}>
       <video
-        ref={vid} src={src} autoPlay playsInline preload="auto" referrerPolicy="no-referrer"
+        ref={vid} src={src} autoPlay playsInline preload="auto"
         className="vp-video" onClick={toggle} onDoubleClick={full}
         onPlay={() => { setPaused(false); poke(); }} onPause={() => { setPaused(true); setShow(true); }}
         onWaiting={() => setWaiting(true)} onPlaying={() => setWaiting(false)} onCanPlay={() => setWaiting(false)}
