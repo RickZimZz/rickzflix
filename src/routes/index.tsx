@@ -188,10 +188,12 @@ function Index() {
 
       <footer className="site-footer">
         <p>Todos os direitos reservados © {new Date().getFullYear()} RickzFlix.</p>
-        <span className="site-online" aria-live="polite">
+        <div className="site-online" aria-live="polite" aria-label={`${onlineCount} pessoas online`}>
           <span className="site-online-dot" aria-hidden="true" />
-          <span aria-hidden="true">👤</span> {onlineCount} {onlineCount === 1 ? "online" : "online"}
-        </span>
+          <span className="site-online-icon" aria-hidden="true">👤</span>
+          <span className="site-online-count">{onlineCount}</span>
+          <span className="site-online-label">{onlineCount === 1 ? "pessoa online" : "pessoas online"}</span>
+        </div>
       </footer>
       {playing && <Player movie={playing} movies={movies} onClose={() => setPlaying(null)} onPick={setPlaying} />}
       {adminOpen && <AdminPanel movies={movies} onClose={() => setAdminOpen(false)} onChange={load} />}
