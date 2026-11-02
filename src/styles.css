@@ -65,6 +65,48 @@
 
 :root {
   --radius: 0.5rem;
+  --background: oklch(0.97 0.004 60);
+  --foreground: oklch(0.18 0.006 20);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.006 20);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.006 20);
+  --primary: oklch(0.57 0.22 27);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.92 0.006 60);
+  --secondary-foreground: oklch(0.18 0.006 20);
+  --muted: oklch(0.92 0.006 60);
+  --muted-foreground: oklch(0.45 0.01 40);
+  --accent: oklch(0.82 0.15 80);
+  --accent-foreground: oklch(0.15 0 0);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0 0 0 / 12%);
+  --input: oklch(0 0 0 / 15%);
+  --ring: oklch(0.57 0.22 27);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.18 0.006 20);
+  --sidebar-primary: oklch(0.57 0.22 27);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.92 0.006 60);
+  --sidebar-accent-foreground: oklch(0.18 0.006 20);
+  --sidebar-border: oklch(0 0 0 / 12%);
+  --sidebar-ring: oklch(0.57 0.22 27);
+  --rating-l: oklch(0.6 0.17 145);
+  --rating-10: oklch(0.55 0.15 240);
+  --rating-12: oklch(0.8 0.16 90);
+  --rating-14: oklch(0.68 0.18 55);
+  --rating-16: oklch(0.57 0.22 27);
+  --rating-18: oklch(0.2 0 0);
+}
+
+.dark {
+  --radius: 0.5rem;
   --background: oklch(0.14 0.005 20);
   --foreground: oklch(0.96 0.005 80);
   --card: oklch(0.19 0.006 20);
@@ -140,4 +182,10 @@
   .field-label { display:block; margin-bottom: .3rem; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted-foreground); }
   .field { width: 100%; border-radius: var(--radius); border: 1px solid var(--input); background: var(--background); padding: .6rem .8rem; color: var(--foreground); outline: none; }
   .field:focus { border-color: var(--ring); }
+}
+
+@layer components {
+  .icon-btn { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; border-radius: 999px; border: 1px solid var(--border); background: color-mix(in oklab, var(--background) 60%, transparent); backdrop-filter: blur(8px); color: var(--foreground); }
+  .icon-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .movie-card-grid { width: auto; }
 }
