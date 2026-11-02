@@ -34,6 +34,19 @@ export const addMovie = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const updateMovie = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    movieSchema.extend({ id: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    checkPassword(data.password);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { password: _p, id, ...movie } = data;
+    const { error } = await supabaseAdmin.from("movies").update(movie).eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const deleteMovie = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({ password: z.string().max(200), id: z.string().uuid() }).parse(d),
