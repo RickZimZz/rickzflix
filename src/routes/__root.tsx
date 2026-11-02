@@ -11,6 +11,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import legacyCss from "../legacy-tv.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -93,6 +94,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      {
+        rel: "stylesheet",
+        href: legacyCss,
+      },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800&family=Bebas+Neue&display=swap" },
@@ -120,6 +125,16 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    // Older Smart TV browsers may not understand CSS cascade layers or modern colors.
+    const supportsModernCss =
+      typeof CSS !== "undefined" &&
+      CSS.supports("color", "oklch(0.5 0.1 20)") &&
+      CSS.supports("color", "color-mix(in srgb, red, blue)") &&
+      "CSSLayerBlockRule" in window;
+    document.documentElement.classList.toggle("legacy-tv", !supportsModernCss);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
