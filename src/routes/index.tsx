@@ -264,8 +264,10 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
     };
     document.addEventListener("fullscreenchange", onFs);
     window.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("fullscreenchange", onFs); window.removeEventListener("keydown", onKey); clearTimeout(hideT.current); };
+    return () => { document.removeEventListener("fullscreenchange", onFs); window.removeEventListener("keydown", onKey); };
   });
+
+  useEffect(() => () => clearTimeout(hideT.current), []);
 
   const pct = dur ? (time / dur) * 100 : 0;
   const bufPct = dur ? (buffered / dur) * 100 : 0;
