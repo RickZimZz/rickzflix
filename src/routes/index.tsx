@@ -75,9 +75,15 @@ function Index() {
       p_movie_id: movie.id,
       p_visitor_id: visitorId,
     });
-    if (!error && typeof data === "number") {
-      setMovies((current) => current.map((item) => item.id === movie.id ? { ...item, views_count: data } : item));
-      setPlaying((current) => current?.id === movie.id ? { ...current, views_count: data } : current);
+    if (error) {
+      console.error("RickZFlix: não foi possível registrar a visualização:", error.message);
+      return;
+    }
+    // O Supabase pode devolver colunas bigint como string dependendo do cliente.
+    const views = Number(data);
+    if (Number.isFinite(views)) {
+      setMovies((current) => current.map((item) => item.id === movie.id ? { ...item, views_count: views } : item));
+      setPlaying((current) => current?.id === movie.id ? { ...current, views_count: views } : current);
     }
   };
   useEffect(() => {
@@ -446,8 +452,10 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
       setForm(empty);
       setEditingId(null);
       onChange();
-    } catch {
-      setError("Não foi possível salvar. Verifique se os links são válidos (começando com https://).");
+    } catch (err) {
+      console.error("RickZFlix: erro ao salvar filme:", err);
+      const message = err instanceof Error ? err.message : "Erro desconhecido ao salvar o filme.";
+      setError(message);
     }
     setBusy(false);
   };
