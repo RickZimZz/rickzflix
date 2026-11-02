@@ -6,10 +6,10 @@ import { addMovie, deleteMovie, verifyAdmin } from "@/lib/movies.functions";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "CineVault — Seus filmes" },
-      { name: "description", content: "Assista aos filmes da coleção CineVault, organizados por categoria." },
-      { property: "og:title", content: "CineVault — Seus filmes" },
-      { property: "og:description", content: "Assista aos filmes da coleção CineVault, organizados por categoria." },
+      { title: "RickzFlix — Seus filmes" },
+      { name: "description", content: "Assista aos filmes da coleção RickzFlix, organizados por categoria." },
+      { property: "og:title", content: "RickzFlix — Seus filmes" },
+      { property: "og:description", content: "Assista aos filmes da coleção RickzFlix, organizados por categoria." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -39,6 +39,12 @@ function embedUrl(url: string) {
   return { type: "video" as const, src: url };
 }
 
+function SearchIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+  );
+}
+
 function RatingBadge({ r }: { r: string }) {
   return <span className="rating-badge" data-rating={r}>{r === "Livre" ? "L" : r}</span>;
 }
@@ -49,6 +55,17 @@ function Index() {
   const [playing, setPlaying] = useState<Movie | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [filter, setFilter] = useState("Todos");
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [dark, setDark] = useState(true);
+  useEffect(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved === "light") setDark(false);
+  }, []);
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  }, [dark]);
 
   const load = async () => {
     const { data } = await supabase.from("movies").select("*").order("created_at", { ascending: false });
@@ -59,18 +76,30 @@ function Index() {
 
   const categories = useMemo(() => ["Todos", ...Array.from(new Set(movies.map((m) => m.category)))], [movies]);
   const grouped = useMemo(() => {
-    const list = filter === "Todos" ? movies : movies.filter((m) => m.category === filter);
+    const q = query.trim().toLowerCase();
+    const list = movies.filter((m) => (filter === "Todos" || m.category === filter) && (!q || m.title.toLowerCase().includes(q)));
+    if (filter !== "Todos" || q) return list.length ? [[filter === "Todos" ? "Resultados" : filter, list] as [string, Movie[]]] : [];
     const map = new Map<string, Movie[]>();
     list.forEach((m) => map.set(m.category, [...(map.get(m.category) ?? []), m]));
     return Array.from(map.entries());
-  }, [movies, filter]);
-  const featured = movies[0];
+  }, [movies, filter, query]);
+  const showHero = filter === "Todos" && !query.trim();
+  const featured = showHero ? movies[0] : undefined;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between px-5 py-4 md:px-10 bg-gradient-to-b from-background to-transparent">
-        <h1 className="font-display text-3xl tracking-wider text-primary">CINEVAULT</h1>
-        <button className="btn-ghost" onClick={() => setAdminOpen(true)}>Administrador</button>
+        <h1 className="font-display text-3xl tracking-wider text-primary">RICKZFLIX</h1>
+        <div className="flex items-center gap-2">
+          {searchOpen && (
+            <input autoFocus className="field h-9 w-40 py-1 sm:w-56" placeholder="Buscar filme…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          )}
+          <button className="icon-btn" aria-label="Pesquisar" onClick={() => { if (searchOpen) setQuery(""); setSearchOpen(!searchOpen); }}>
+            {searchOpen ? "✕" : <SearchIcon />}
+          </button>
+          <button className="icon-btn" aria-label="Alternar tema" onClick={() => setDark(!dark)}>{dark ? "☀" : "☾"}</button>
+          <button className="btn-ghost" onClick={() => setAdminOpen(true)}>Admin</button>
+        </div>
       </header>
 
       {featured ? (
@@ -86,6 +115,8 @@ function Index() {
             <button className="btn-primary mt-6" onClick={() => setPlaying(featured)}>▶ Assistir</button>
           </div>
         </section>
+      ) : !showHero ? (
+        <div className="h-20" />
       ) : (
         <section className="flex h-[60vh] flex-col items-center justify-center px-6 pt-20 text-center">
           <h2 className="font-display text-5xl md:text-7xl">{loading ? "Carregando…" : "Nenhum filme ainda"}</h2>
@@ -102,12 +133,15 @@ function Index() {
       )}
 
       <main className="space-y-10 pb-16">
+        {!loading && movies.length > 0 && grouped.length === 0 && (
+          <p className="px-5 text-muted-foreground md:px-10">Nenhum filme encontrado.</p>
+        )}
         {grouped.map(([cat, list]) => (
           <section key={cat}>
             <h3 className="px-5 font-display text-2xl tracking-wide md:px-10">{cat}</h3>
-            <div className="mt-3 flex gap-4 overflow-x-auto px-5 pb-2 md:px-10">
+            <div className={showHero ? "mt-3 flex gap-4 overflow-x-auto px-5 pb-2 md:px-10" : "mt-3 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-4 px-5 md:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] md:px-10"}>
               {list.map((m) => (
-                <button key={m.id} onClick={() => setPlaying(m)} className="movie-card group">
+                <button key={m.id} onClick={() => setPlaying(m)} className={showHero ? "movie-card group" : "movie-card movie-card-grid group"}>
                   <img src={m.cover_url} alt={m.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   <div className="movie-card-info">
                     <div className="flex items-center gap-2"><RatingBadge r={m.rating} /></div>
@@ -155,6 +189,8 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
   const [busy, setBusy] = useState(false);
   const empty = { title: "", cover_url: "", video_url: "", category: "", description: "", rating: "Livre" };
   const [form, setForm] = useState(empty);
+  const [adminQuery, setAdminQuery] = useState("");
+  const adminList = movies.filter((m) => m.title.toLowerCase().includes(adminQuery.trim().toLowerCase()) || m.category.toLowerCase().includes(adminQuery.trim().toLowerCase()));
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setBusy(true);
@@ -209,15 +245,19 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
               <button className="btn-primary w-full" disabled={busy}>{busy ? "Salvando…" : "Adicionar filme"}</button>
             </form>
             {movies.length > 0 && (
-              <div className="mt-6 space-y-2">
-                <h3 className="field-label">Filmes cadastrados</h3>
-                {movies.map((m) => (
+              <div className="mt-6">
+                <h3 className="field-label">Filmes cadastrados ({movies.length})</h3>
+                <input className="field mb-2" placeholder="Pesquisar nos filmes cadastrados…" value={adminQuery} onChange={(e) => setAdminQuery(e.target.value)} />
+                <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                {adminList.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme encontrado.</p>}
+                {adminList.map((m) => (
                   <div key={m.id} className="flex items-center gap-3 rounded-md bg-secondary p-2">
                     <img src={m.cover_url} alt="" className="h-12 w-9 rounded object-cover" />
-                    <span className="flex-1 truncate text-sm">{m.title}</span>
+                    <div className="min-w-0 flex-1"><p className="truncate text-sm">{m.title}</p><p className="truncate text-xs text-muted-foreground">{m.category} · {m.rating === "Livre" ? "Livre" : `${m.rating} anos`}</p></div>
                     <button className="text-sm text-destructive" onClick={() => remove(m.id)}>Remover</button>
                   </div>
                 ))}
+                </div>
               </div>
             )}
           </>
