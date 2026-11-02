@@ -127,13 +127,16 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    // Older Smart TV browsers may not understand CSS cascade layers or modern colors.
+    // Detect common Smart TV platforms without affecting phones or desktop browsers.
+    const ua = navigator.userAgent || "";
+    const isSmartTv = /SmartTV|SMART-TV|Tizen|Web0S|webOS|NetCast|HbbTV|BRAVIA|AFT[A-Z0-9]*|Android TV|GoogleTV|AppleTV|Viera|PhilipsTV|Hisense|Roku/i.test(ua);
     const supportsModernCss =
       typeof CSS !== "undefined" &&
       CSS.supports("color", "oklch(0.5 0.1 20)") &&
       CSS.supports("color", "color-mix(in srgb, red, blue)") &&
       "CSSLayerBlockRule" in window;
     document.documentElement.classList.toggle("legacy-tv", !supportsModernCss);
+    document.documentElement.classList.toggle("tv-mode", isSmartTv);
   }, []);
 
   return (
