@@ -207,7 +207,7 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
   const skip = (d: number) => { const v = vid.current; if (!v) return; v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + d)); setFlash(d > 0 ? "+10s" : "-10s"); setTimeout(() => setFlash(null), 600); poke(); };
   const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else wrap.current?.requestFullscreen?.(); };
   const setVolume = (n: number) => { const v = vid.current; if (!v) return; v.volume = n; v.muted = n === 0; setVol(n); setMuted(n === 0); };
-  const cycleRate = () => { const rates = [1, 1.25, 1.5, 2, 0.5, 0.75]; const n = rates[(rates.indexOf(rate) + 1) % rates.length]; if (vid.current) vid.current.playbackRate = n; setRate(n); };
+  const cycleRate = () => { const rates = [1, 1.25, 1.5, 2, 0.5, 0.75]; const n = rates[(rates.indexOf(rate) + 1) % rates.length] ?? 1; if (vid.current) vid.current.playbackRate = n; setRate(n); };
 
   useEffect(() => {
     const onFs = () => setIsFull(!!document.fullscreenElement);
