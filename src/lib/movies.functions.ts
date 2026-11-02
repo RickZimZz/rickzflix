@@ -1,21 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
-
-function isPublicAddress(address: string) {
+function isPublicAddress(address: string, isIP: (value: string) => number) {
   if (isIP(address) === 4) {
     const parts = address.split(".").map(Number);
-    const [a, b] = parts;
+    const [a, b, c] = parts;
     return !(a === 0 || a === 10 || a === 127 || a >= 224 ||
-      (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127));
+      (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) || (a === 192 && (b === 0 || b === 168)) ||
+      (a === 198 && (b === 18 || b === 19 || b === 51)) ||
+      (a === 203 && b === 0 && c === 113));
   }
   // Only allow globally-routable IPv6 addresses; reject local, mapped and special ranges.
   return isIP(address) === 6 && /^2|^3/.test(address);
 }
 
 async function assertPublicUrl(rawUrl: string) {
+  const { lookup } = await import("node:dns/promises");
+  const { isIP } = await import("node:net");
   const url = new URL(rawUrl);
   if (url.protocol !== "https:" || url.username || url.password) {
     throw new Error("URL não permitida para verificação");
@@ -25,7 +26,7 @@ async function assertPublicUrl(rawUrl: string) {
     throw new Error("Endereço não público");
   }
   const addresses = await lookup(host, { all: true, verbatim: true });
-  if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address))) {
+  if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address, isIP))) {
     throw new Error("Destino não público");
   }
   return url;
@@ -75,13 +76,18 @@ export const checkMovieLinks = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data }) => {
     checkPassword(data.password);
-    const results = await Promise.all(data.movies.map(async (movie) => {
-      try {
-        return { id: movie.id, ...(await requestVideoStatus(movie.video_url)) };
-      } catch (error) {
-        return { id: movie.id, status: "unknown" as const, message: error instanceof Error ? error.message : "Não foi possível verificar" };
-      }
-    }));
+    const results: Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }> = [];
+    for (let i = 0; i < data.movies.length; i += 8) {
+      const batch = data.movies.slice(i, i + 8);
+      const checked = await Promise.all(batch.map(async (movie) => {
+        try {
+          return { id: movie.id, ...(await requestVideoStatus(movie.video_url)) };
+        } catch (error) {
+          return { id: movie.id, status: "unknown" as const, message: error instanceof Error ? error.message : "Não foi possível verificar" };
+        }
+      }));
+      results.push(...checked);
+    }
     return { results, checkedAt: new Date().toISOString() };
   });
 
