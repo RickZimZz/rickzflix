@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { addMovie, deleteMovie, updateMovie, verifyAdmin } from "@/lib/movies.functions";
+import { addMovie, checkMovieLinks, deleteMovie, updateMovie, verifyAdmin } from "@/lib/movies.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -325,7 +325,33 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adminQuery, setAdminQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"cadastro" | "logs">("cadastro");
+  const [linkChecks, setLinkChecks] = useState<Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>>([]);
+  const [checkingLinks, setCheckingLinks] = useState(false);
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
   const adminList = movies.filter((m) => m.title.toLowerCase().includes(adminQuery.trim().toLowerCase()) || m.category.toLowerCase().includes(adminQuery.trim().toLowerCase()));
+
+  const runLinkCheck = async () => {
+    setCheckingLinks(true);
+    try {
+      const result = await checkMovieLinks({
+        data: {
+          password,
+          movies: movies.map(({ id, video_url }) => ({ id, video_url })),
+        },
+      });
+      setLinkChecks(result.results);
+      setCheckedAt(result.checkedAt);
+    } catch {
+      setError("Não foi possível verificar os links agora.");
+    } finally {
+      setCheckingLinks(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authed) void runLinkCheck();
+  }, [authed]);
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setBusy(true);
@@ -382,7 +408,10 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="panel" onClick={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-display text-3xl tracking-wide">Administrador</h2>
+          <div>
+            <h2 className="font-display text-3xl tracking-wide">Administrador</h2>
+            {authed && <p className="mt-1 text-xs text-muted-foreground">Gerencie seu catálogo e acompanhe os links dos filmes.</p>}
+          </div>
           <button className="btn-ghost" onClick={onClose}>✕</button>
         </div>
         {!authed ? (
@@ -394,6 +423,13 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
           </form>
         ) : (
           <>
+            <div className="mb-5 grid grid-cols-2 gap-2 rounded-lg bg-secondary p-1">
+              <button type="button" onClick={() => setActiveTab("cadastro")} className={activeTab === "cadastro" ? "btn-primary" : "btn-ghost"}>Cadastrar</button>
+              <button type="button" onClick={() => setActiveTab("logs")} className={activeTab === "logs" ? "btn-primary" : "btn-ghost"}>
+                Logs {linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length > 0 && <span className="ml-1">({linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length})</span>}
+              </button>
+            </div>
+            {activeTab === "cadastro" && <>
             <form onSubmit={submit} className="space-y-3">
               <div><label className="field-label">Nome do filme</label><input required className="field" value={form.title} onChange={set("title")} /></div>
               <div><label className="field-label">Capa (link da imagem)</label><input required type="url" placeholder="https://..." className="field" value={form.cover_url} onChange={set("cover_url")} /></div>
@@ -427,6 +463,44 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
                 ))}
                 </div>
               </div>
+            )}
+            </>}
+            {activeTab === "logs" && (
+              <section className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold">Monitoramento de links</h3>
+                    <p className="text-xs text-muted-foreground">A verificação é executada ao entrar no Admin.</p>
+                  </div>
+                  <button type="button" className="btn-primary" onClick={runLinkCheck} disabled={checkingLinks}>
+                    {checkingLinks ? "Verificando…" : "Verificar novamente"}
+                  </button>
+                </div>
+                {checkedAt && <p className="text-xs text-muted-foreground">Última verificação: {new Date(checkedAt).toLocaleString("pt-BR")}</p>}
+                {checkingLinks && <p className="text-sm text-muted-foreground">Analisando os links cadastrados…</p>}
+                {!checkingLinks && movies.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme cadastrado para verificar.</p>}
+                {!checkingLinks && movies.length > 0 && linkChecks.length === 0 && <p className="text-sm text-muted-foreground">Ainda não há resultados. Tente verificar novamente.</p>}
+                <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+                  {linkChecks.map((item) => {
+                    const movie = movies.find((m) => m.id === item.id);
+                    if (!movie) return null;
+                    const label = item.status === "ok" ? "Respondendo" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Atenção" : "Não verificado";
+                    const color = item.status === "ok" ? "text-green-500" : item.status === "expired" ? "text-destructive" : item.status === "warning" ? "text-amber-500" : "text-muted-foreground";
+                    return (
+                      <div key={item.id} className="rounded-md bg-secondary p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">{movie.title}</p>
+                            <p className={`mt-1 text-xs ${color}`}>{label} · {item.message}</p>
+                          </div>
+                          <button type="button" className="shrink-0 text-sm text-primary" onClick={() => startEdit(movie)}>Atualizar link</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">Importante: alguns serviços, como YouTube e Google Drive, podem responder normalmente mesmo quando o vídeo foi removido ou exige acesso. Links bloqueados podem aparecer como atenção, não necessariamente expirados.</p>
+              </section>
             )}
           </>
         )}
