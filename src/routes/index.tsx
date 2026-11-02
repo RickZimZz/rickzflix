@@ -387,6 +387,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
       rating: movie.rating,
     });
     setEditingId(movie.id);
+    setActiveTab("cadastro");
     setError("");
   };
 
