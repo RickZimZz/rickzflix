@@ -201,9 +201,12 @@
   .vp-spinner { width: 3.5rem; height: 3.5rem; border-radius: 999px; border: 4px solid oklch(1 0 0 / 20%); border-top-color: var(--primary); animation: spin .8s linear infinite; }
   .vp-flash { padding: .5rem 1rem; border-radius: 999px; background: oklch(0 0 0 / 60%); font-weight: 800; backdrop-filter: blur(6px); animation: vp-pop .6s ease-out; }
   .vp-top, .vp-bar { position: absolute; inset-inline: 0; padding: .75rem 1rem; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; }
-  .vp-top { top: 0; padding-bottom: 2.5rem; background: linear-gradient(to bottom, oklch(0 0 0 / 70%), transparent); transform: translateY(-8px); }
-  .vp-bar { bottom: 0; padding-top: 3rem; background: linear-gradient(to top, oklch(0 0 0 / 85%), transparent); transform: translateY(8px); }
+  .vp-top { top: 0; padding-bottom: 2.5rem; background: linear-gradient(to bottom, oklch(0 0 0 / 70%), transparent); transform: translateY(12px); }
+  .vp-bar { bottom: 0; padding-top: 3rem; background: linear-gradient(to top, oklch(0 0 0 / 85%), transparent); transform: translateY(20px); }
   .vp-show .vp-top, .vp-show .vp-bar { opacity: 1; transform: none; pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) {
+    .vp-top, .vp-bar { transition: none; }
+  }
   .vp-btn { display: grid; place-items: center; min-width: 2.4rem; height: 2.4rem; border-radius: 999px; transition: background .15s, transform .15s; }
   .vp-btn:hover { background: oklch(1 0 0 / 14%); transform: scale(1.06); }
   .vp-rate { padding: 0 .6rem; font-size: .8rem; font-weight: 800; }
