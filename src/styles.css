@@ -189,3 +189,15 @@
   .icon-btn:hover { border-color: var(--primary); color: var(--primary); }
   .movie-card-grid { width: auto; }
 }
+
+@layer components {
+  .player-wrap { position: relative; aspect-ratio: 16/9; width: 100%; overflow: hidden; border-radius: var(--radius); background: var(--card); }
+  .player-wrap:fullscreen { border-radius: 0; aspect-ratio: auto; }
+  .player-controls { position: absolute; inset-inline: 0; bottom: 0; padding: 2rem .75rem .6rem; color: oklch(0.98 0 0); background: linear-gradient(to top, oklch(0 0 0 / 80%), transparent); transition: opacity .3s; }
+  .player-wrap:hover .player-controls, .player-wrap:focus-within .player-controls { opacity: 1; }
+  @media (hover: hover) { .player-controls { opacity: 0; } }
+  .player-range { width: 100%; margin-bottom: .4rem; accent-color: var(--primary); cursor: pointer; }
+  .player-btn { min-width: 2.25rem; height: 2.25rem; padding: 0 .4rem; border-radius: 999px; font-size: .8rem; font-weight: 700; }
+  .player-btn:hover { background: oklch(1 0 0 / 15%); }
+  .player-btn-main { background: var(--primary); color: var(--primary-foreground); }
+}
