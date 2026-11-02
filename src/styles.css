@@ -191,13 +191,31 @@
 }
 
 @layer components {
-  .player-wrap { position: relative; aspect-ratio: 16/9; width: 100%; overflow: hidden; border-radius: var(--radius); background: var(--card); }
-  .player-wrap:fullscreen { border-radius: 0; aspect-ratio: auto; }
-  .player-controls { position: absolute; inset-inline: 0; bottom: 0; padding: 2rem .75rem .6rem; color: oklch(0.98 0 0); background: linear-gradient(to top, oklch(0 0 0 / 80%), transparent); transition: opacity .3s; }
-  .player-wrap:hover .player-controls, .player-wrap:focus-within .player-controls { opacity: 1; }
-  @media (hover: hover) { .player-controls { opacity: 0; } }
-  .player-range { width: 100%; margin-bottom: .4rem; accent-color: var(--primary); cursor: pointer; }
-  .player-btn { min-width: 2.25rem; height: 2.25rem; padding: 0 .4rem; border-radius: 999px; font-size: .8rem; font-weight: 700; }
-  .player-btn:hover { background: oklch(1 0 0 / 15%); }
-  .player-btn-main { background: var(--primary); color: var(--primary-foreground); }
+  .vp { --vp-fg: oklch(0.98 0 0); position: relative; aspect-ratio: 16/9; width: 100%; overflow: hidden; border-radius: calc(var(--radius) + 6px); background: oklch(0 0 0); color: var(--vp-fg); box-shadow: 0 30px 80px -30px color-mix(in oklab, var(--primary) 45%, transparent); cursor: none; user-select: none; }
+  .vp-show { cursor: default; }
+  .vp:fullscreen { border-radius: 0; aspect-ratio: auto; }
+  .vp-video { width: 100%; height: 100%; object-fit: contain; background: oklch(0 0 0); }
+  .vp-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .vp-bigplay { display: grid; place-items: center; width: 5rem; height: 5rem; padding-left: .3rem; border-radius: 999px; background: color-mix(in oklab, var(--primary) 85%, transparent); color: var(--primary-foreground); box-shadow: 0 0 0 10px color-mix(in oklab, var(--primary) 25%, transparent); transition: transform .2s; }
+  .vp-bigplay-wrap:hover .vp-bigplay { transform: scale(1.08); }
+  .vp-spinner { width: 3.5rem; height: 3.5rem; border-radius: 999px; border: 4px solid oklch(1 0 0 / 20%); border-top-color: var(--primary); animation: spin .8s linear infinite; }
+  .vp-flash { padding: .5rem 1rem; border-radius: 999px; background: oklch(0 0 0 / 60%); font-weight: 800; backdrop-filter: blur(6px); animation: vp-pop .6s ease-out; }
+  .vp-top, .vp-bar { position: absolute; inset-inline: 0; padding: .75rem 1rem; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; }
+  .vp-top { top: 0; padding-bottom: 2.5rem; background: linear-gradient(to bottom, oklch(0 0 0 / 70%), transparent); transform: translateY(-8px); }
+  .vp-bar { bottom: 0; padding-top: 3rem; background: linear-gradient(to top, oklch(0 0 0 / 85%), transparent); transform: translateY(8px); }
+  .vp-show .vp-top, .vp-show .vp-bar { opacity: 1; transform: none; pointer-events: auto; }
+  .vp-btn { display: grid; place-items: center; min-width: 2.4rem; height: 2.4rem; border-radius: 999px; transition: background .15s, transform .15s; }
+  .vp-btn:hover { background: oklch(1 0 0 / 14%); transform: scale(1.06); }
+  .vp-rate { padding: 0 .6rem; font-size: .8rem; font-weight: 800; }
+  .vp-progress { position: relative; height: 1.1rem; margin-bottom: .25rem; display: flex; align-items: center; }
+  .vp-progress::before { content: ""; position: absolute; inset-inline: 0; height: 4px; border-radius: 999px; transition: height .15s; background: linear-gradient(to right, var(--primary) var(--p), oklch(1 0 0 / 40%) var(--p), oklch(1 0 0 / 40%) var(--b), oklch(1 0 0 / 18%) var(--b)); }
+  .vp-progress:hover::before { height: 7px; }
+  .vp-progress input, .vp-vol input { position: relative; width: 100%; appearance: none; background: transparent; cursor: pointer; margin: 0; }
+  .vp-progress input::-webkit-slider-thumb, .vp-vol input::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 999px; background: var(--primary); box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 30%, transparent); }
+  .vp-progress input::-moz-range-thumb, .vp-vol input::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 999px; background: var(--primary); }
+  .vp-vol { display: flex; align-items: center; }
+  .vp-vol input { width: 0; opacity: 0; transition: width .2s, opacity .2s; height: 4px; border-radius: 999px; background: linear-gradient(to right, var(--vp-fg) var(--p), oklch(1 0 0 / 25%) var(--p)); }
+  .vp-vol:hover input, .vp-vol:focus-within input { width: 5rem; opacity: 1; margin-right: .3rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes vp-pop { from { transform: scale(.7); opacity: 0; } 40% { opacity: 1; } }
 }
