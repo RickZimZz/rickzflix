@@ -219,3 +219,53 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes vp-pop { from { transform: scale(.7); opacity: 0; } 40% { opacity: 1; } }
 }
+
+
+@layer components {
+  .admin-panel { position:relative; isolation:isolate; width:min(100%, 56rem); max-height: min(92dvh, 58rem); padding:clamp(1.1rem, 3vw, 2rem); border-radius:1.25rem; background:var(--card); box-shadow:0 28px 100px -35px oklch(0 0 0 / 75%); }
+  .admin-glow { position:absolute; z-index:-1; pointer-events:none; top:-7rem; left:10%; width:20rem; height:14rem; background:color-mix(in oklab, var(--primary) 18%, transparent); filter:blur(75px); opacity:.7; }
+  .admin-eyebrow { color:var(--primary); font-size:.65rem; font-weight:800; letter-spacing:.18em; }
+  .admin-close { display:grid; flex:none; place-items:center; width:2.5rem; height:2.5rem; border:1px solid var(--border); border-radius:.8rem; background:var(--secondary); color:var(--muted-foreground); transition:all .2s; }
+  .admin-close:hover { color:var(--foreground); border-color:var(--primary); transform:rotate(90deg); }
+  .admin-stats { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .admin-stat { display:flex; min-width:0; flex-direction:column; gap:.2rem; padding:.85rem 1rem; border:1px solid var(--border); border-radius:.9rem; background:color-mix(in oklab,var(--background) 75%,transparent); }
+  .admin-stat-icon { color:var(--primary); font-size:.9rem; font-weight:900; }
+  .admin-good { color:oklch(.68 .16 145); }
+  .admin-alert { color:oklch(.76 .16 75); }
+  .admin-stat-value { font-size:1.55rem; line-height:1.2; font-weight:800; font-variant-numeric:tabular-nums; }
+  .admin-stat-label { color:var(--muted-foreground); font-size:.68rem; line-height:1.25; }
+  .admin-tabs { padding:.3rem; border:1px solid var(--border); border-radius:.9rem; background:var(--background); }
+  .admin-tab { display:flex; align-items:center; justify-content:center; gap:.5rem; min-height:2.8rem; border-radius:.65rem; color:var(--muted-foreground); font-size:.9rem; font-weight:700; transition:all .2s; }
+  .admin-tab:hover { color:var(--foreground); background:var(--secondary); }
+  .admin-tab-active { color:var(--primary-foreground); background:var(--primary); box-shadow:0 6px 20px -10px var(--primary); }
+  .admin-tab-active:hover { color:var(--primary-foreground); background:var(--primary); }
+  .admin-field { min-height:2.8rem; border-radius:.7rem; transition:border-color .2s,box-shadow .2s,background .2s; }
+  .admin-field:focus { border-color:var(--primary); box-shadow:0 0 0 3px color-mix(in oklab,var(--primary) 15%,transparent); }
+  .admin-form .field-label { margin-bottom:.45rem; }
+  .admin-submit { min-height:3rem; justify-content:space-between; padding-inline:1rem 1.2rem; }
+  .admin-login { max-width:28rem; margin:2rem auto 1rem; padding:clamp(1rem,3vw,1.5rem); border:1px solid var(--border); border-radius:1rem; background:var(--background); }
+  .admin-movie-row,.admin-log-row { border:1px solid var(--border); background:var(--background); transition:border-color .2s,transform .2s,background .2s; }
+  .admin-movie-row:hover,.admin-log-row:hover { border-color:color-mix(in oklab,var(--primary) 55%,var(--border)); background:var(--secondary); }
+  .admin-action { flex:none; border-radius:.55rem; padding:.45rem .65rem; font-size:.75rem; font-weight:700; transition:background .2s,color .2s; }
+  .admin-edit { color:var(--primary); background:color-mix(in oklab,var(--primary) 10%,transparent); }
+  .admin-edit:hover { background:color-mix(in oklab,var(--primary) 20%,transparent); }
+  .admin-remove { color:var(--destructive); background:color-mix(in oklab,var(--destructive) 9%,transparent); }
+  .admin-remove:hover { background:color-mix(in oklab,var(--destructive) 18%,transparent); }
+  .admin-section-heading { padding:.9rem 1rem; border:1px solid var(--border); border-radius:.9rem; background:var(--background); }
+  .admin-log-row { padding:1rem; }
+  .admin-logs .field-label { margin-bottom:.45rem; }
+  @media (max-width: 520px) {
+    .admin-panel { max-height:94dvh; padding:1rem; border-radius:1rem; }
+    .admin-stats { gap:.4rem; }
+    .admin-stat { padding:.65rem .55rem; }
+    .admin-stat-value { font-size:1.25rem; }
+    .admin-stat-label { font-size:.6rem; }
+    .admin-movie-row { flex-wrap:wrap; }
+    .admin-movie-row > div { min-width:calc(100% - 4rem); }
+    .admin-action { margin-left:auto; }
+    .admin-login { margin-top:1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .admin-panel *, .admin-panel *::before, .admin-panel *::after { transition:none !important; }
+  }
+}
