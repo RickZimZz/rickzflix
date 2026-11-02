@@ -119,8 +119,8 @@ function Index() {
   const featured = showHero ? movies[0] : undefined;
 
   return (
-    <div className="min-h-screen bg-background text-foreground tv-app">
-      <header className="tv-header fixed inset-x-0 top-0 z-30 flex items-center justify-between px-5 py-4 md:px-10 bg-gradient-to-b from-background to-transparent">
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between px-5 py-4 md:px-10 bg-gradient-to-b from-background to-transparent">
         <h1 className="font-display text-3xl tracking-wider text-primary">RICKZFLIX</h1>
         <div className="flex items-center gap-2">
           {searchOpen && (
@@ -135,8 +135,8 @@ function Index() {
       </header>
 
       {featured ? (
-        <section className="tv-hero relative flex h-[70vh] min-h-[420px] items-end">
-          <img src={featured.cover_url} alt={featured.title} className="tv-hero-image absolute inset-0 h-full w-full object-cover" />
+        <section className="relative flex h-[70vh] min-h-[420px] items-end">
+          <img src={featured.cover_url} alt={featured.title} className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 hero-fade" />
           <div className="relative z-10 max-w-2xl px-5 pb-12 md:px-10">
             <div className="mb-3 flex items-center gap-3 text-sm text-muted-foreground">
@@ -157,21 +157,21 @@ function Index() {
       )}
 
       {movies.length > 0 && (
-        <div className="tv-categories flex gap-2 overflow-x-auto px-5 py-6 md:px-10">
+        <div className="flex gap-2 overflow-x-auto px-5 py-6 md:px-10">
           {categories.map((c) => (
             <button key={c} onClick={() => setFilter(c)} className={c === filter ? "chip chip-active" : "chip"}>{c}</button>
           ))}
         </div>
       )}
 
-      <main className="tv-main space-y-10 pb-16">
+      <main className="space-y-10 pb-16">
         {!loading && movies.length > 0 && grouped.length === 0 && (
           <p className="px-5 text-muted-foreground md:px-10">Nenhum filme encontrado.</p>
         )}
         {grouped.map(([cat, list]) => (
           <section key={cat}>
             <h3 className="px-5 font-display text-2xl tracking-wide md:px-10">{cat}</h3>
-            <div className={showHero ? "tv-movie-row mt-3 flex gap-4 overflow-x-auto px-5 pb-2 md:px-10" : "tv-movie-row tv-movie-grid mt-3 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-4 px-5 md:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] md:px-10"}>
+            <div className={showHero ? "mt-3 flex gap-4 overflow-x-auto px-5 pb-2 md:px-10" : "mt-3 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-4 px-5 md:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] md:px-10"}>
               {list.map((m) => (
                 <button key={m.id} onClick={() => setPlaying(m)} className={showHero ? "movie-card group" : "movie-card movie-card-grid group"}>
                   <img src={m.cover_url} alt={m.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
