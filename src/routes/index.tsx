@@ -25,6 +25,8 @@ type Movie = {
   category: string;
   description: string;
   rating: string;
+  year: number | null;
+  views_count: number;
 };
 
 const RATINGS = ["Livre", "10", "12", "14", "16", "18"];
@@ -59,6 +61,25 @@ function Index() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [dark, setDark] = useState(true);
   const [onlineCount, setOnlineCount] = useState(0);
+
+  const openMovie = async (movie: Movie) => {
+    setPlaying(movie);
+    let visitorId = localStorage.getItem("rickzflix-visitor-id");
+    if (!visitorId) {
+      visitorId = typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `visitor-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem("rickzflix-visitor-id", visitorId);
+    }
+    const { data, error } = await supabase.rpc("register_movie_view", {
+      p_movie_id: movie.id,
+      p_visitor_id: visitorId,
+    });
+    if (!error && typeof data === "number") {
+      setMovies((current) => current.map((item) => item.id === movie.id ? { ...item, views_count: data } : item));
+      setPlaying((current) => current?.id === movie.id ? { ...current, views_count: data } : current);
+    }
+  };
   useEffect(() => {
     const saved = localStorage.getItem("theme");
     if (saved === "light") setDark(false);
@@ -144,7 +165,7 @@ function Index() {
             </div>
             <h2 className="font-display text-5xl leading-none md:text-7xl">{featured.title}</h2>
             <p className="mt-4 line-clamp-3 text-muted-foreground">{featured.description}</p>
-            <button className="btn-primary mt-6" onClick={() => setPlaying(featured)}>▶ Assistir</button>
+            <button className="btn-primary mt-6" onClick={() => void openMovie(featured)}>▶ Assistir</button>
           </div>
         </section>
       ) : !showHero ? (
@@ -173,7 +194,7 @@ function Index() {
             <h3 className="px-5 font-display text-2xl tracking-wide md:px-10">{cat}</h3>
             <div className={showHero ? "mt-3 flex gap-4 overflow-x-auto px-5 pb-2 md:px-10" : "mt-3 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-4 px-5 md:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] md:px-10"}>
               {list.map((m) => (
-                <button key={m.id} onClick={() => setPlaying(m)} className={showHero ? "movie-card group" : "movie-card movie-card-grid group"}>
+                <button key={m.id} onClick={() => void openMovie(m)} className={showHero ? "movie-card group" : "movie-card movie-card-grid group"}>
                   <img src={m.cover_url} alt={m.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   <div className="movie-card-info">
                     <div className="flex items-center gap-2"><RatingBadge r={m.rating} /></div>
@@ -195,7 +216,7 @@ function Index() {
           <span className="site-online-label">{onlineCount === 1 ? "pessoa online" : "pessoas online"}</span>
         </div>
       </footer>
-      {playing && <Player movie={playing} movies={movies} onClose={() => setPlaying(null)} onPick={setPlaying} />}
+      {playing && <Player movie={playing} movies={movies} onClose={() => setPlaying(null)} onPick={openMovie} />}
       {adminOpen && <AdminPanel movies={movies} onClose={() => setAdminOpen(false)} onChange={load} />}
     </div>
   );
@@ -345,8 +366,9 @@ function Player({ movie, movies, onClose, onPick }: { movie: Movie; movies: Movi
           <VideoPlayer key={movie.id} src={e.src} title={movie.title} />
         )}
         <div className="mt-5">
-          <div className="flex items-center gap-3"><RatingBadge r={movie.rating} /><span className="text-sm text-muted-foreground">{movie.category}</span></div>
+          <div className="flex flex-wrap items-center gap-2"><RatingBadge r={movie.rating} /><span className="text-sm text-muted-foreground">{movie.category}{movie.year ? ` (${movie.year})` : ""}</span></div>
           <h2 className="mt-2 font-display text-4xl leading-none">{movie.title}</h2>
+          <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground"><span aria-hidden="true">◉</span>{(movie.views_count ?? 0).toLocaleString("pt-BR")} {movie.views_count === 1 ? "visualização" : "visualizações"}</p>
           {movie.description && <p className="mt-3 max-w-3xl text-muted-foreground">{movie.description}</p>}
         </div>
         {suggestions.length > 0 && (
@@ -372,7 +394,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
   const [authed, setAuthed] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const empty = { title: "", cover_url: "", video_url: "", category: "", description: "", rating: "Livre" };
+  const empty = { title: "", cover_url: "", video_url: "", category: "", year: null as number | null, description: "", rating: "Livre" };
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adminQuery, setAdminQuery] = useState("");
@@ -436,6 +458,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
       cover_url: movie.cover_url,
       video_url: movie.video_url,
       category: movie.category,
+      year: movie.year ?? null,
       description: movie.description ?? "",
       rating: movie.rating,
     });
@@ -497,8 +520,9 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
               <div><label className="field-label">Capa (link da imagem)</label><input required type="url" placeholder="https://..." className="field admin-field" value={form.cover_url} onChange={set("cover_url")} /></div>
               <div><label className="field-label">Link do vídeo</label><input required type="url" placeholder="YouTube, Vimeo, Google Drive ou .mp4" className="field admin-field" value={form.video_url} onChange={set("video_url")} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="field-label">Categoria</label><input required list="cats" className="field admin-field" placeholder="Ex.: Aventura" value={form.category} onChange={set("category")} />
+                <div><label className="field-label">Categoria</label><input required list="cats" className="field admin-field" placeholder="Ex.: Terror" value={form.category} onChange={set("category")} />
                   <datalist id="cats">{Array.from(new Set(movies.map((m) => m.category))).map((c) => <option key={c} value={c} />)}</datalist></div>
+                <div><label className="field-label">Ano do filme</label><input type="number" min="1888" max="2100" className="field admin-field" placeholder="Ex.: 2024" value={form.year ?? ""} onChange={(e) => setForm({ ...form, year: e.target.value ? Number(e.target.value) : null })} /></div>
                 <div><label className="field-label">Classificação</label>
                   <select className="field admin-field" value={form.rating} onChange={set("rating")}>{RATINGS.map((r) => <option key={r} value={r}>{r === "Livre" ? "Livre" : `${r} anos`}</option>)}</select></div>
               </div>
