@@ -329,6 +329,8 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
   const [linkChecks, setLinkChecks] = useState<Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>>([]);
   const [checkingLinks, setCheckingLinks] = useState(false);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [logFilter, setLogFilter] = useState<"todos" | "ok" | "expired" | "warning" | "unknown">("todos");
+  const filteredLinkChecks = linkChecks.filter((item) => logFilter === "todos" || item.status === logFilter);
   const adminList = movies.filter((m) => m.title.toLowerCase().includes(adminQuery.trim().toLowerCase()) || m.category.toLowerCase().includes(adminQuery.trim().toLowerCase()));
 
   const runLinkCheck = async () => {
@@ -479,11 +481,22 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
                   </button>
                 </div>
                 {checkedAt && <p className="text-xs text-muted-foreground">Última verificação: {new Date(checkedAt).toLocaleString("pt-BR")}</p>}
+                <div className="flex flex-col gap-1.5 sm:max-w-xs">
+                  <label htmlFor="log-status-filter" className="field-label">Filtrar por status</label>
+                  <select id="log-status-filter" className="field" value={logFilter} onChange={(e) => setLogFilter(e.target.value as typeof logFilter)}>
+                    <option value="todos">Todos os status ({linkChecks.length})</option>
+                    <option value="ok">Funcionando ({linkChecks.filter((item) => item.status === "ok").length})</option>
+                    <option value="expired">Link expirado / indisponível ({linkChecks.filter((item) => item.status === "expired").length})</option>
+                    <option value="warning">Atenção ({linkChecks.filter((item) => item.status === "warning").length})</option>
+                    <option value="unknown">Não verificado ({linkChecks.filter((item) => item.status === "unknown").length})</option>
+                  </select>
+                </div>
                 {checkingLinks && <p className="text-sm text-muted-foreground">Analisando os links cadastrados…</p>}
                 {!checkingLinks && movies.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme cadastrado para verificar.</p>}
                 {!checkingLinks && movies.length > 0 && linkChecks.length === 0 && <p className="text-sm text-muted-foreground">Ainda não há resultados. Tente verificar novamente.</p>}
                 <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-                  {linkChecks.map((item) => {
+                  {!checkingLinks && linkChecks.length > 0 && filteredLinkChecks.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme encontrado com esse status.</p>}
+                  {filteredLinkChecks.map((item) => {
                     const movie = movies.find((m) => m.id === item.id);
                     if (!movie) return null;
                     const label = item.status === "ok" ? "Respondendo" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Atenção" : "Não verificado";
