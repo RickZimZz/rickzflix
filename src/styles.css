@@ -269,3 +269,46 @@
     .admin-panel *, .admin-panel *::before, .admin-panel *::after { transition:none !important; }
   }
 }
+
+
+/* RickzFlix footer and live presence counter */
+.site-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  padding: 28px 16px 34px;
+  margin-top: 28px;
+  border-top: 1px solid rgba(255,255,255,.09);
+  background: #101014;
+  color: #85858f;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.site-online {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #d7d7dc;
+  font-size: 13px;
+  font-weight: 600;
+}
+.site-online-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #35c875;
+  box-shadow: 0 0 9px rgba(53,200,117,.65);
+}
+html.tv-mode .site-footer {
+  gap: 12px !important;
+  padding: 32px 20px 42px !important;
+  font-size: 16px !important;
+}
+html.tv-mode .site-online { font-size: 17px !important; }
+html.tv-mode .site-online-dot { width: 10px !important; height: 10px !important; }
