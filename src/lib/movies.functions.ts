@@ -112,6 +112,7 @@ const movieSchema = z.object({
   category: z.string().trim().min(1).max(100),
   description: z.string().trim().max(3000),
   rating: z.string().trim().min(1).max(20),
+  year: z.number().int().min(1888).max(2100).nullable(),
 });
 
 export const addMovie = createServerFn({ method: "POST" })
