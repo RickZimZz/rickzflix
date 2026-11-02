@@ -482,7 +482,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
             {activeTab === "cadastro" && <>
             <form onSubmit={submit} className="admin-form space-y-4">
               <div><label className="field-label">Nome do filme</label><input required className="field admin-field" placeholder="Ex.: Harry Potter e a Pedra Filosofal" value={form.title} onChange={set("title")} /></div>
-              <div><label className="field-label">Capa (link da imagem)</label><input required type="url" placeholder="https://..." className="field admin-field" placeholder="https://..." value={form.cover_url} onChange={set("cover_url")} /></div>
+              <div><label className="field-label">Capa (link da imagem)</label><input required type="url" placeholder="https://..." className="field admin-field" value={form.cover_url} onChange={set("cover_url")} /></div>
               <div><label className="field-label">Link do vídeo</label><input required type="url" placeholder="YouTube, Vimeo, Google Drive ou .mp4" className="field admin-field" value={form.video_url} onChange={set("video_url")} /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="field-label">Categoria</label><input required list="cats" className="field admin-field" placeholder="Ex.: Aventura" value={form.category} onChange={set("category")} />
