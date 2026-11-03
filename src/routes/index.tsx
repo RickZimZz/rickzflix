@@ -278,6 +278,7 @@ function testBrowserPlayback(videoUrl: string): Promise<BrowserPlaybackResult> {
       video.pause();
       video.removeAttribute("src");
       video.load();
+      video.remove();
     };
 
     const finish = (result: BrowserPlaybackResult) => {
@@ -289,6 +290,18 @@ function testBrowserPlayback(videoUrl: string): Promise<BrowserPlaybackResult> {
 
     video.preload = "auto";
     video.muted = true;
+    video.setAttribute("aria-hidden", "true");
+    video.tabIndex = -1;
+    Object.assign(video.style, {
+      position: "fixed",
+      width: "1px",
+      height: "1px",
+      opacity: "0",
+      pointerEvents: "none",
+      left: "-10px",
+      top: "-10px",
+    });
+    document.body.appendChild(video);
     video.playsInline = true;
     video.onloadeddata = () => { loaded = true; };
     video.oncanplay = () => { loaded = true; };
@@ -298,13 +311,14 @@ function testBrowserPlayback(videoUrl: string): Promise<BrowserPlaybackResult> {
     });
     video.onerror = () => {
       const code = video.error?.code;
+      const detail = code === 3 || code === 4
+        ? "Formato, codec ou origem não suportado pelo player deste navegador"
+        : "O player do navegador não conseguiu receber os dados do vídeo";
       finish({
-        status: code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
-          ? "warning"
-          : "expired",
-        message: code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
-          ? "Formato ou origem não suportado pelo player deste navegador"
-          : "O player do navegador não conseguiu carregar este vídeo",
+        // Um erro de mídia não prova que o link expirou: também pode ser
+        // bloqueio do host, rede, codec ou política do navegador.
+        status: "warning",
+        message: detail,
       });
     };
     video.onstalled = () => {
