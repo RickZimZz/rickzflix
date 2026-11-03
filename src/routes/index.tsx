@@ -545,7 +545,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
           <div className="min-w-0">
             <span className="admin-eyebrow">RICKZFLIX · PAINEL DE CONTROLE</span>
             <h2 className="mt-1 font-display text-4xl tracking-wide sm:text-5xl">Administrador</h2>
-            {authed && <p className="mt-1 text-sm text-muted-foreground">Gerencie seu catálogo e monitore seus links em um só lugar.</p>}
+            {authed && <p className="mt-1 text-sm text-muted-foreground">Gerencie seu catálogo e acompanhe os reportes enviados pelos usuários.</p>}
           </div>
           <button className="admin-close" aria-label="Fechar administrador" onClick={onClose}>✕</button>
         </div>
