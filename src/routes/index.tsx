@@ -304,7 +304,10 @@ function testBrowserPlayback(videoUrl: string, attempt = 0): Promise<BrowserPlay
     document.body.appendChild(video);
     video.playsInline = true;
     video.onloadeddata = () => { loaded = true; };
-    video.oncanplay = () => { loaded = true; };
+    video.oncanplay = () => finish({
+      status: "ok",
+      message: "O vídeo carregou e o navegador confirmou que está pronto para reprodução",
+    });
     video.onplaying = () => finish({
       status: "ok",
       message: "O navegador iniciou a reprodução do vídeo com sucesso",
@@ -570,14 +573,13 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
     if (checkingLinks || movies.length === 0) return;
     setError("");
     setCheckingLinks(true);
-    setLinkChecks([]);
-    setCheckedAt(null);
     setCheckProgress({ done: 0, total: movies.length });
 
-    // Testa em pequenos lotes no próprio navegador, usando o mesmo tipo
-    // de elemento e os mesmos eventos de reprodução do player principal.
-    const batchSize = 5;
+    // Mantém os resultados anteriores enquanto a nova verificação acontece.
+    // Cada lote é salvo imediatamente para sobreviver ao fechamento do painel.
+    let accumulated = [...linkChecks];
     let completed = 0;
+    const batchSize = 5;
     try {
       for (let i = 0; i < movies.length; i += batchSize) {
         const batch = movies.slice(i, i + batchSize);
@@ -592,11 +594,26 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
             };
           }
         }));
-        setLinkChecks((current) => [...current, ...results]);
+
+        const updatedIds = new Set(results.map((item) => item.id));
+        accumulated = [...accumulated.filter((item) => !updatedIds.has(item.id)), ...results];
+        try {
+          localStorage.setItem("rickzflix-link-checks", JSON.stringify(accumulated));
+        } catch {
+          // O estado em memória continua disponível mesmo se o armazenamento falhar.
+        }
+        setLinkChecks(accumulated);
         completed += batch.length;
         setCheckProgress({ done: completed, total: movies.length });
       }
-      setCheckedAt(new Date().toISOString());
+
+      const timestamp = new Date().toISOString();
+      try {
+        localStorage.setItem("rickzflix-link-checks-at", timestamp);
+      } catch {
+        // A data continua no estado enquanto o painel estiver aberto.
+      }
+      setCheckedAt(timestamp);
     } finally {
       setCheckingLinks(false);
     }
@@ -803,7 +820,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     <label htmlFor="log-status-filter" className="field-label">Filtrar por status</label>
                     <select id="log-status-filter" className="field" value={logFilter} onChange={(e) => setLogFilter(e.target.value as typeof logFilter)}>
                     <option value="todos">Todos os status ({linkChecks.length})</option>
-                    <option value="ok">Reprodução iniciada ({linkChecks.filter((item) => item.status === "ok").length})</option>
+                    <option value="ok">Link funcionando ({linkChecks.filter((item) => item.status === "ok").length})</option>
                     <option value="expired">Link expirado / indisponível ({linkChecks.filter((item) => item.status === "expired").length})</option>
                     <option value="warning">Atenção ({linkChecks.filter((item) => item.status === "warning").length})</option>
                     <option value="unknown">Não confirmado ({linkChecks.filter((item) => item.status === "unknown").length})</option>
@@ -823,7 +840,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                 )}
                 {linkChecks.length > 0 && (
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "ok").length}</p><p className="text-xs text-muted-foreground">Reproduções iniciadas</p></div>
+                    <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "ok").length}</p><p className="text-xs text-muted-foreground">Links funcionando</p></div>
                     <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "expired").length}</p><p className="text-xs text-muted-foreground">Indisponíveis</p></div>
                     <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "warning").length}</p><p className="text-xs text-muted-foreground">Atenção</p></div>
                     <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "unknown").length}</p><p className="text-xs text-muted-foreground">Não confirmados</p></div>
@@ -836,7 +853,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                   {filteredLinkChecks.map((item) => {
                     const movie = movies.find((m) => m.id === item.id);
                     if (!movie) return null;
-                    const label = item.status === "ok" ? "Reprodução iniciada" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Precisa de atenção" : "Não confirmado";
+                    const label = item.status === "ok" ? "Link funcionando" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Precisa de atenção" : "Não confirmado";
                     const color = item.status === "ok" ? "text-green-500" : item.status === "expired" ? "text-destructive" : "text-amber-500";
                     return (
                       <div key={item.id} className="admin-log-row rounded-lg p-3">
@@ -851,7 +868,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">O teste usa o player HTML5 do navegador e confirma quando o evento de reprodução é iniciado. Provedores incorporados por iframe não podem ser confirmados automaticamente e aparecem como não confirmados.</p>
+                <p className="text-xs text-muted-foreground">O teste considera o vídeo funcionando quando o navegador consegue carregá-lo e deixá-lo pronto para reprodução; se a reprodução realmente começar, isso também é confirmado. Provedores incorporados por iframe não podem ser confirmados automaticamente e aparecem como não confirmados.</p>
               </section>
             )}
           </>
