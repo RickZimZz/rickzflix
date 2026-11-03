@@ -627,7 +627,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     <label htmlFor="log-status-filter" className="field-label">Filtrar por status</label>
                     <select id="log-status-filter" className="field" value={logFilter} onChange={(e) => setLogFilter(e.target.value as typeof logFilter)}>
                     <option value="todos">Todos os status ({linkChecks.length})</option>
-                    <option value="ok">Funcionando ({linkChecks.filter((item) => item.status === "ok").length})</option>
+                    <option value="ok">Arquivo respondendo ({linkChecks.filter((item) => item.status === "ok").length})</option>
                     <option value="expired">Link expirado / indisponível ({linkChecks.filter((item) => item.status === "expired").length})</option>
                     <option value="warning">Atenção ({linkChecks.filter((item) => item.status === "warning").length})</option>
                     <option value="unknown">Não verificado ({linkChecks.filter((item) => item.status === "unknown").length})</option>
@@ -657,7 +657,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">Importante: alguns serviços, como YouTube e Google Drive, podem responder normalmente mesmo quando o vídeo foi removido ou exige acesso. Links bloqueados podem aparecer como atenção, não necessariamente expirados.</p>
+                <p className="text-xs text-muted-foreground">A verificação analisa a resposta do servidor e o tipo de conteúdo, mas não reproduz o vídeo. Páginas de serviços como YouTube e Google Drive podem aparecer como “Não verificado”; abra o player para confirmar a reprodução.</p>
               </section>
             )}
           </>
