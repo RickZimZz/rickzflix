@@ -319,3 +319,50 @@
   background: #35c875;
   box-shadow: 0 0 0 3px color-mix(in oklab, #35c875 16%, transparent), 0 0 9px rgba(53,200,117,.45);
 }
+
+
+/* Category ordering controls */
+.category-order-controls {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: .3rem;
+  padding: .22rem;
+  border: 1px solid var(--border);
+  border-radius: .8rem;
+  background: color-mix(in oklab, var(--card) 82%, var(--background));
+}
+.category-order-btn {
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: .58rem;
+  color: var(--muted-foreground);
+  background: transparent;
+  transition: color .18s ease, background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.category-order-btn svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.category-order-btn:not(:disabled):hover {
+  color: var(--primary);
+  border-color: color-mix(in oklab, var(--primary) 28%, transparent);
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+}
+.category-order-btn:not(:disabled):active { transform: scale(.92); }
+.category-order-btn:disabled {
+  cursor: not-allowed;
+  opacity: .28;
+}
+@media (max-width: 520px) {
+  .category-order-controls { margin-left: auto; }
+  .category-order-btn { width: 2rem; height: 2rem; }
+}
