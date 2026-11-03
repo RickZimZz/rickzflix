@@ -70,10 +70,7 @@ function Index() {
   const openMovie = (movie: Movie) => {
     setPlaying(movie);
   };
-  useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved === "light") setDark(false);
-  }, []);
+  // Start in the original dark appearance; the header toggle can still switch themes.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     localStorage.setItem("theme", dark ? "dark" : "light");
