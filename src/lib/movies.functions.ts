@@ -36,59 +36,81 @@ async function requestVideoStatus(rawUrl: string) {
   let current = rawUrl;
   for (let redirect = 0; redirect <= 4; redirect++) {
     const url = await assertPublicUrl(current);
-    let response = await fetch(url, {
-      method: "HEAD",
+    // Testa uma requisição GET real (com Range), não apenas HEAD.
+    // Alguns hosts respondem HEAD 200 mesmo quando o arquivo não pode ser entregue.
+    const response = await fetch(url, {
+      method: "GET",
       redirect: "manual",
-      signal: AbortSignal.timeout(7000),
-      headers: { "user-agent": "RickZFlix-Link-Checker/1.0" },
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        range: "bytes=0-1023",
+        "user-agent": "Mozilla/5.0 (compatible; RickZFlix-Link-Checker/1.0)",
+        accept: "video/*,application/vnd.apple.mpegurl,application/x-mpegURL,application/dash+xml,*/*;q=0.8",
+      },
     }).catch(() => null);
 
-    if (response && [301, 302, 303, 307, 308].includes(response.status)) {
+    if (!response) {
+      return { status: "unknown" as const, message: "O servidor não entregou o arquivo para teste" };
+    }
+
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get("location");
-      if (!location || redirect === 4) return { status: "unknown" as const, message: "Redirecionamento não verificável" };
+      await response.body?.cancel().catch(() => undefined);
+      if (!location || redirect === 4) {
+        return { status: "unknown" as const, message: "Redirecionamento não verificável" };
+      }
       current = new URL(location, url).toString();
       continue;
     }
 
-    if (response && [405, 501].includes(response.status)) {
-      response = await fetch(url, {
-        method: "GET",
-        redirect: "manual",
-        signal: AbortSignal.timeout(7000),
-        headers: { range: "bytes=0-0", "user-agent": "RickZFlix-Link-Checker/1.0" },
-      }).catch(() => null);
+    if ([404, 410].includes(response.status)) {
+      await response.body?.cancel().catch(() => undefined);
+      return { status: "expired" as const, message: `Link indisponível (HTTP ${response.status})` };
+    }
+    if ([401, 403].includes(response.status)) {
+      await response.body?.cancel().catch(() => undefined);
+      return { status: "warning" as const, message: "Acesso bloqueado ou exige permissão" };
+    }
+    if (response.status >= 500) {
+      await response.body?.cancel().catch(() => undefined);
+      return { status: "warning" as const, message: `Servidor com erro (HTTP ${response.status})` };
+    }
+    if (response.status < 200 || response.status >= 300) {
+      await response.body?.cancel().catch(() => undefined);
+      return { status: "warning" as const, message: `Resposta HTTP ${response.status}` };
     }
 
-    if (!response) return { status: "unknown" as const, message: "Servidor não respondeu ou bloqueou a verificação" };
-    if ([404, 410].includes(response.status)) return { status: "expired" as const, message: `Link indisponível (HTTP ${response.status})` };
-    if ([401, 403].includes(response.status)) return { status: "warning" as const, message: "Acesso bloqueado ou exige permissão" };
-    if (response.status >= 500) return { status: "warning" as const, message: `Servidor com erro (HTTP ${response.status})` };
-    if (response.status >= 200 && response.status < 300) {
-      const contentType = (response.headers.get("content-type") ?? "")
-        .split(";")[0]
-        .trim()
-        .toLowerCase();
-      const isVideoContent =
-        contentType.startsWith("video/") ||
-        ["application/vnd.apple.mpegurl", "application/x-mpegurl", "application/dash+xml"].includes(contentType);
+    const contentType = (response.headers.get("content-type") ?? "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+    const isVideoContent =
+      contentType.startsWith("video/") ||
+      ["application/vnd.apple.mpegurl", "application/x-mpegurl", "application/dash+xml"].includes(contentType);
 
-      if (!isVideoContent) {
-        return {
-          status: "unknown" as const,
-          message: "A página respondeu, mas não confirmou que o vídeo está disponível",
-        };
-      }
-
-      if (response.headers.get("content-length") === "0") {
-        return { status: "warning" as const, message: "O servidor retornou um arquivo vazio" };
-      }
-
-      return { status: "ok" as const, message: "Arquivo de vídeo respondeu normalmente" };
+    if (!isVideoContent) {
+      await response.body?.cancel().catch(() => undefined);
+      return {
+        status: "unknown" as const,
+        message: "O endereço respondeu, mas entregou uma página ou formato que não confirma um vídeo reproduzível",
+      };
     }
-    if (response.status >= 300 && response.status < 400) {
-      return { status: "unknown" as const, message: "Redirecionamento não confirmado" };
+
+    // Lê apenas um pequeno trecho para confirmar que o host realmente entregou bytes.
+    const reader = response.body?.getReader();
+    if (!reader) {
+      return { status: "unknown" as const, message: "O servidor não entregou conteúdo para validar" };
     }
-    return { status: "warning" as const, message: `Resposta HTTP ${response.status}` };
+    const firstChunk = await reader.read().catch(() => ({ done: true as const, value: undefined }));
+    await reader.cancel().catch(() => undefined);
+    if (firstChunk.done || !firstChunk.value?.byteLength) {
+      return { status: "warning" as const, message: "O servidor respondeu, mas não entregou dados do vídeo" };
+    }
+
+    return {
+      status: "ok" as const,
+      message: "O servidor entregou dados de vídeo; a reprodução ainda depende do formato e das permissões do player",
+    };
   }
   return { status: "unknown" as const, message: "Não foi possível seguir o link" };
 }
