@@ -63,7 +63,31 @@ async function requestVideoStatus(rawUrl: string) {
     if ([404, 410].includes(response.status)) return { status: "expired" as const, message: `Link indisponível (HTTP ${response.status})` };
     if ([401, 403].includes(response.status)) return { status: "warning" as const, message: "Acesso bloqueado ou exige permissão" };
     if (response.status >= 500) return { status: "warning" as const, message: `Servidor com erro (HTTP ${response.status})` };
-    if (response.status >= 200 && response.status < 400) return { status: "ok" as const, message: "Servidor respondeu normalmente" };
+    if (response.status >= 200 && response.status < 300) {
+      const contentType = (response.headers.get("content-type") ?? "")
+        .split(";")[0]
+        .trim()
+        .toLowerCase();
+      const isVideoContent =
+        contentType.startsWith("video/") ||
+        ["application/vnd.apple.mpegurl", "application/x-mpegurl", "application/dash+xml"].includes(contentType);
+
+      if (!isVideoContent) {
+        return {
+          status: "unknown" as const,
+          message: "A página respondeu, mas não confirmou que o vídeo está disponível",
+        };
+      }
+
+      if (response.headers.get("content-length") === "0") {
+        return { status: "warning" as const, message: "O servidor retornou um arquivo vazio" };
+      }
+
+      return { status: "ok" as const, message: "Arquivo de vídeo respondeu normalmente" };
+    }
+    if (response.status >= 300 && response.status < 400) {
+      return { status: "unknown" as const, message: "Redirecionamento não confirmado" };
+    }
     return { status: "warning" as const, message: `Resposta HTTP ${response.status}` };
   }
   return { status: "unknown" as const, message: "Não foi possível seguir o link" };
