@@ -633,7 +633,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     <label htmlFor="log-status-filter" className="field-label">Filtrar por status</label>
                     <select id="log-status-filter" className="field" value={logFilter} onChange={(e) => setLogFilter(e.target.value as typeof logFilter)}>
                     <option value="todos">Todos os status ({linkChecks.length})</option>
-                    <option value="ok">Arquivo respondendo ({linkChecks.filter((item) => item.status === "ok").length})</option>
+                    <option value="ok">Dados de vídeo recebidos ({linkChecks.filter((item) => item.status === "ok").length})</option>
                     <option value="expired">Link expirado / indisponível ({linkChecks.filter((item) => item.status === "expired").length})</option>
                     <option value="warning">Atenção ({linkChecks.filter((item) => item.status === "warning").length})</option>
                     <option value="unknown">Não verificado ({linkChecks.filter((item) => item.status === "unknown").length})</option>
@@ -648,7 +648,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                   {filteredLinkChecks.map((item) => {
                     const movie = movies.find((m) => m.id === item.id);
                     if (!movie) return null;
-                    const label = item.status === "ok" ? "Respondendo" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Atenção" : "Não verificado";
+                    const label = item.status === "ok" ? "Dados de vídeo recebidos" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Atenção" : "Não verificado";
                     const color = item.status === "ok" ? "text-green-500" : item.status === "expired" ? "text-destructive" : item.status === "warning" ? "text-amber-500" : "text-muted-foreground";
                     return (
                       <div key={item.id} className="admin-log-row rounded-lg p-3">
@@ -663,7 +663,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">A verificação analisa a resposta do servidor e o tipo de conteúdo, mas não reproduz o vídeo. Páginas de serviços como YouTube e Google Drive podem aparecer como “Não verificado”; abra o player para confirmar a reprodução.</p>
+                <p className="text-xs text-muted-foreground">Agora o teste faz uma requisição GET e confere se o servidor realmente entrega bytes de vídeo. “Dados de vídeo recebidos” não garante compatibilidade do player, codec ou permissões do navegador. Páginas como YouTube e Google Drive podem aparecer como “Não verificado”.</p>
               </section>
             )}
           </>
