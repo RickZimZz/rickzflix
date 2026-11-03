@@ -41,9 +41,9 @@ async function requestVideoStatus(rawUrl: string) {
     const response = await fetch(url, {
       method: "GET",
       redirect: "manual",
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(5000),
       headers: {
-        range: "bytes=0-65535",
+        range: "bytes=0-8191",
         "user-agent": "Mozilla/5.0 (compatible; RickZFlix-Link-Checker/1.0)",
         accept: "video/*,application/vnd.apple.mpegurl,application/x-mpegURL,application/dash+xml,*/*;q=0.8",
       },
@@ -80,8 +80,8 @@ async function requestVideoStatus(rawUrl: string) {
       return { status: "warning" as const, message: `Resposta HTTP ${response.status}` };
     }
 
-    // Lê até 64 KB para confirmar que o servidor está realmente entregando dados.
-    // O limite evita baixar o filme inteiro caso o host ignore o cabeçalho Range.
+    // Lê apenas o primeiro bloco para confirmar a entrega, sem baixar o vídeo.
+    // O timeout de 5s e o Range pequeno deixam a verificação mais rápida.
     // Não exige Content-Type video/* porque alguns hosts usam application/octet-stream.
     const reader = response.body?.getReader();
     if (!reader) {
@@ -91,12 +91,8 @@ async function requestVideoStatus(rawUrl: string) {
     let bytesRead = 0;
     let readFailed = false;
     try {
-      while (bytesRead < 65536) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        bytesRead += chunk.value?.byteLength ?? 0;
-        if (!chunk.value?.byteLength) break;
-      }
+      const chunk = await reader.read();
+      if (!chunk.done) bytesRead = chunk.value?.byteLength ?? 0;
     } catch {
       readFailed = true;
     } finally {
