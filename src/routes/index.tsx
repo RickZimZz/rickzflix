@@ -26,7 +26,6 @@ type Movie = {
   description: string;
   rating: string;
   year: number | null;
-  views_count?: number;
 };
 
 const RATINGS = ["Livre", "10", "12", "14", "16", "18"];
@@ -368,7 +367,6 @@ function Player({ movie, movies, onClose, onPick }: { movie: Movie; movies: Movi
         <div className="mt-5">
           <div className="flex flex-wrap items-center gap-2"><RatingBadge r={movie.rating} /><span className="text-sm text-muted-foreground">{movie.category}{movie.year ? ` (${movie.year})` : ""}</span></div>
           <h2 className="mt-2 font-display text-4xl leading-none">{movie.title}</h2>
-          <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground"><span aria-hidden="true">◉</span>{(movie.views_count ?? 0).toLocaleString("pt-BR")} {movie.views_count === 1 ? "visualização" : "visualizações"}</p>
           {movie.description && <p className="mt-3 max-w-3xl text-muted-foreground">{movie.description}</p>}
         </div>
         {suggestions.length > 0 && (
@@ -403,7 +401,13 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
   const [checkingLinks, setCheckingLinks] = useState(false);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
   const [logFilter, setLogFilter] = useState<"todos" | "ok" | "expired" | "warning" | "unknown">("todos");
-  const filteredLinkChecks = linkChecks.filter((item) => logFilter === "todos" || item.status === logFilter);
+  const [logQuery, setLogQuery] = useState("");
+  const filteredLinkChecks = linkChecks.filter((item) => {
+    const movie = movies.find((m) => m.id === item.id);
+    const matchesStatus = logFilter === "todos" || item.status === logFilter;
+    const matchesTitle = !logQuery.trim() || movie?.title.toLowerCase().includes(logQuery.trim().toLowerCase());
+    return matchesStatus && matchesTitle;
+  });
   const adminList = movies.filter((m) => m.title.toLowerCase().includes(adminQuery.trim().toLowerCase()) || m.category.toLowerCase().includes(adminQuery.trim().toLowerCase()));
 
   const runLinkCheck = async () => {
@@ -613,15 +617,22 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                   </button>
                 </div>
                 {checkedAt && <p className="text-xs text-muted-foreground">Última verificação: {new Date(checkedAt).toLocaleString("pt-BR")}</p>}
-                <div className="flex flex-col gap-1.5 sm:max-w-xs">
-                  <label htmlFor="log-status-filter" className="field-label">Filtrar por status</label>
-                  <select id="log-status-filter" className="field" value={logFilter} onChange={(e) => setLogFilter(e.target.value as typeof logFilter)}>
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,280px)]">
+                  <div className="relative">
+                    <label htmlFor="log-search" className="field-label">Pesquisar filme</label>
+                    <span className="pointer-events-none absolute left-3 top-[2.55rem] text-muted-foreground"><SearchIcon /></span>
+                    <input id="log-search" className="field pl-10" type="search" placeholder="Digite o nome do filme…" value={logQuery} onChange={(e) => setLogQuery(e.target.value)} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="log-status-filter" className="field-label">Filtrar por status</label>
+                    <select id="log-status-filter" className="field" value={logFilter} onChange={(e) => setLogFilter(e.target.value as typeof logFilter)}>
                     <option value="todos">Todos os status ({linkChecks.length})</option>
                     <option value="ok">Funcionando ({linkChecks.filter((item) => item.status === "ok").length})</option>
                     <option value="expired">Link expirado / indisponível ({linkChecks.filter((item) => item.status === "expired").length})</option>
                     <option value="warning">Atenção ({linkChecks.filter((item) => item.status === "warning").length})</option>
                     <option value="unknown">Não verificado ({linkChecks.filter((item) => item.status === "unknown").length})</option>
-                  </select>
+                    </select>
+                  </div>
                 </div>
                 {checkingLinks && <p className="text-sm text-muted-foreground">Analisando os links cadastrados…</p>}
                 {!checkingLinks && movies.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme cadastrado para verificar.</p>}
