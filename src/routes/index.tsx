@@ -256,6 +256,8 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
   const [isFull, setIsFull] = useState(false);
   const [waiting, setWaiting] = useState(true);
   const [error, setError] = useState(false);
+  const [errorTitle, setErrorTitle] = useState("Não foi possível carregar o vídeo");
+  const [errorMessage, setErrorMessage] = useState("O navegador não conseguiu iniciar a reprodução.");
   const [show, setShow] = useState(true);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -325,7 +327,21 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
         className="vp-video" onClick={() => { if (!show && !paused) poke(); else toggle(); }} onDoubleClick={full}
         onPlay={() => { setPaused(false); poke(); }} onPause={() => { setPaused(true); setShow(true); }}
         onWaiting={() => setWaiting(true)} onPlaying={() => setWaiting(false)} onCanPlay={() => setWaiting(false)}
-        onError={() => { setError(true); setWaiting(false); }}
+        onError={(e) => {
+          const mediaError = e.currentTarget.error;
+          const code = mediaError?.code;
+          const diagnostics: Record<number, { title: string; message: string }> = {
+            1: { title: "Carregamento interrompido", message: "A reprodução foi interrompida antes de terminar. Tente carregar o vídeo novamente." },
+            2: { title: "Falha de conexão", message: "O navegador perdeu a conexão com o servidor do vídeo. Isso não significa necessariamente que o link expirou." },
+            3: { title: "Formato de vídeo incompatível", message: "O navegador recebeu o vídeo, mas não conseguiu decodificar o conteúdo. O arquivo ou codec pode não ser compatível." },
+            4: { title: "Fonte de vídeo não compatível", message: "O navegador não reconheceu o formato ou o servidor recusou a reprodução. Confira o link e as permissões do host." },
+          };
+          const diagnostic = code ? diagnostics[code] : undefined;
+          setErrorTitle(diagnostic?.title ?? "Não foi possível reproduzir");
+          setErrorMessage(diagnostic?.message ?? "O navegador encontrou um erro sem causa identificada. Verifique a conexão e tente novamente.");
+          setError(true);
+          setWaiting(false);
+        }}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
         onProgress={(e) => { const b = e.currentTarget.buffered; if (b.length) setBuffered(b.end(b.length - 1)); }}
         onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
@@ -333,8 +349,23 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
       {waiting && !error && <div className="vp-center"><div className="vp-spinner" /></div>}
       {error && (
         <div className="vp-center flex-col gap-2 px-6 text-center">
-          <p className="font-display text-2xl">Não foi possível carregar o vídeo</p>
-          <p className="text-sm opacity-80">O link pode ter expirado ou o site de origem bloqueou a reprodução. Atualize o link no painel de administrador.</p>
+          <p className="font-display text-2xl">{errorTitle}</p>
+          <p className="text-sm opacity-80">{errorMessage}</p>
+          <button
+            className="btn-ghost mt-2"
+            onClick={() => {
+              const video = vid.current;
+              if (!video) return;
+              setError(false);
+              setErrorTitle("Não foi possível carregar o vídeo");
+              setErrorMessage("O navegador não conseguiu iniciar a reprodução.");
+              setWaiting(true);
+              video.load();
+              video.play().catch(() => { setWaiting(false); setPaused(true); });
+            }}
+          >
+            Tentar novamente
+          </button>
         </div>
       )}
       {!error && paused && !waiting && (
