@@ -416,7 +416,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
   const [linkChecks, setLinkChecks] = useState<Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>>([]);
   const [checkingLinks, setCheckingLinks] = useState(false);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
-  const [logFilter, setLogFilter] = useState<"todos" | "ok" | "expired" | "warning">("todos");
+  const [logFilter, setLogFilter] = useState<"todos" | "ok" | "expired" | "warning" | "unknown">("todos");
   const [logQuery, setLogQuery] = useState("");
   const filteredLinkChecks = linkChecks.filter((item) => {
     const movie = movies.find((m) => m.id === item.id);
