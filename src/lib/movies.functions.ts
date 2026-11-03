@@ -41,7 +41,7 @@ async function requestVideoStatus(rawUrl: string) {
     const response = await fetch(url, {
       method: "GET",
       redirect: "manual",
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(6000),
       headers: {
         range: "bytes=0-1023",
         "user-agent": "Mozilla/5.0 (compatible; RickZFlix-Link-Checker/1.0)",
@@ -123,8 +123,8 @@ export const checkMovieLinks = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     checkPassword(data.password);
     const results: Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }> = [];
-    for (let i = 0; i < data.movies.length; i += 8) {
-      const batch = data.movies.slice(i, i + 8);
+    for (let i = 0; i < data.movies.length; i += 20) {
+      const batch = data.movies.slice(i, i + 20);
       const checked = await Promise.all(batch.map(async (movie) => {
         try {
           return { id: movie.id, ...(await requestVideoStatus(movie.video_url)) };
