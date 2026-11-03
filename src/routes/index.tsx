@@ -545,8 +545,8 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
           <>
             <div className="admin-stats mb-5 grid grid-cols-3 gap-2">
               <div className="admin-stat"><span className="admin-stat-icon">▣</span><span className="admin-stat-value">{movies.length}</span><span className="admin-stat-label">Filmes no catálogo</span></div>
-              <div className="admin-stat"><span className="admin-stat-icon admin-good">●</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "ok").length}</span><span className="admin-stat-label">Links respondendo</span></div>
-              <div className="admin-stat"><span className="admin-stat-icon admin-alert">!</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length}</span><span className="admin-stat-label">Precisam de atenção</span></div>
+              <div className="admin-stat"><span className="admin-stat-icon admin-good">●</span><span className="admin-stat-value">{linkChecks.length ? linkChecks.filter((item) => item.status === "ok").length : "—"}</span><span className="admin-stat-label">Links respondendo</span></div>
+              <div className="admin-stat"><span className="admin-stat-icon admin-alert">!</span><span className="admin-stat-value">{linkChecks.length ? linkChecks.filter((item) => item.status === "expired" || item.status === "warning" || item.status === "unknown").length : "—"}</span><span className="admin-stat-label">Precisam de atenção</span></div>
             </div>
             <div className="admin-tabs mb-6 grid grid-cols-3 gap-2">
               <button type="button" onClick={() => setActiveTab("cadastro")} className={activeTab === "cadastro" ? "admin-tab admin-tab-active" : "admin-tab"}><span>＋</span> Cadastrar</button>
