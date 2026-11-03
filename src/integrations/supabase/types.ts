@@ -24,8 +24,6 @@ export type Database = {
           rating: string
           title: string
           video_url: string
-          year: number | null
-          views_count: number
         }
         Insert: {
           category: string
@@ -36,8 +34,6 @@ export type Database = {
           rating?: string
           title: string
           video_url: string
-          year?: number | null
-          views_count?: number
         }
         Update: {
           category?: string
@@ -48,8 +44,6 @@ export type Database = {
           rating?: string
           title?: string
           video_url?: string
-          year?: number | null
-          views_count?: number
         }
         Relationships: []
       }
@@ -58,7 +52,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      register_movie_view: { Args: { p_movie_id: string; p_visitor_id: string }; Returns: number }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
