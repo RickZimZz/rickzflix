@@ -538,7 +538,14 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
   const [linkChecks, setLinkChecks] = useState<Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>>(() => {
     try {
       const saved = localStorage.getItem("rickzflix-link-checks");
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed = JSON.parse(saved) as Array<{ id: string; status: string; message: string }>;
+      // Resultados antigos com status "blocked" passam a integrar "expired".
+      // Assim, nenhum link bloqueado fica separado dos links indisponíveis.
+      return parsed.map((item) => ({
+        ...item,
+        status: item.status === "blocked" ? "expired" : item.status,
+      })) as Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>;
     } catch {
       return [];
     }
