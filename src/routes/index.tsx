@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { addCategory, addMovie, checkMovieLinks, deleteCategory, deleteMovie, reorderCategories, updateMovie, verifyAdmin } from "@/lib/movies.functions";
+import { addCategory, addMovie, deleteCategory, deleteMovie, reorderCategories, updateMovie, verifyAdmin } from "@/lib/movies.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -238,6 +238,93 @@ function I({ d, size = 22 }: { d: React.ReactNode; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>{d}</svg>;
 }
 
+
+type BrowserPlaybackResult = {
+  status: "ok" | "expired" | "warning" | "unknown";
+  message: string;
+};
+
+// Usa o mesmo elemento HTMLVideoElement do player. O teste é feito no
+// navegador do administrador, respeitando os formatos suportados pelo browser.
+function testBrowserPlayback(videoUrl: string): Promise<BrowserPlaybackResult> {
+  const embedded = embedUrl(videoUrl);
+  if (embedded.type === "iframe") {
+    return Promise.resolve({
+      status: "unknown",
+      message: "Provedor incorporado: o navegador não permite confirmar a reprodução dentro do iframe",
+    });
+  }
+
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    let settled = false;
+    let loaded = false;
+    const timeout = window.setTimeout(() => {
+      finish({
+        status: "unknown",
+        message: loaded
+          ? "O vídeo carregou, mas não foi possível confirmar o início da reprodução no tempo limite"
+          : "O navegador não conseguiu carregar o vídeo no tempo limite",
+      });
+    }, 12000);
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      video.onloadeddata = null;
+      video.oncanplay = null;
+      video.onplaying = null;
+      video.onerror = null;
+      video.onstalled = null;
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    };
+
+    const finish = (result: BrowserPlaybackResult) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+
+    video.preload = "auto";
+    video.muted = true;
+    video.playsInline = true;
+    video.onloadeddata = () => { loaded = true; };
+    video.oncanplay = () => { loaded = true; };
+    video.onplaying = () => finish({
+      status: "ok",
+      message: "O navegador iniciou a reprodução do vídeo com sucesso",
+    });
+    video.onerror = () => {
+      const code = video.error?.code;
+      finish({
+        status: code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+          ? "warning"
+          : "expired",
+        message: code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+          ? "Formato ou origem não suportado pelo player deste navegador"
+          : "O player do navegador não conseguiu carregar este vídeo",
+      });
+    };
+    video.onstalled = () => {
+      // Alguns provedores pausam temporariamente o envio; o timeout decide.
+    };
+
+    video.src = embedded.src;
+    video.load();
+    video.play().catch(() => {
+      // Se o navegador bloquear autoplay mesmo sem som, não declarar link quebrado.
+      if (!settled) finish({
+        status: "unknown",
+        message: loaded
+          ? "O vídeo carregou, mas o navegador bloqueou o início automático da reprodução"
+          : "O navegador não permitiu iniciar o teste de reprodução",
+      });
+    });
+  });
+}
+
 function VideoPlayer({ src, title }: { src: string; title: string }) {
   const wrap = useRef<HTMLDivElement>(null);
   const vid = useRef<HTMLVideoElement>(null);
@@ -435,38 +522,29 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
     setCheckedAt(null);
     setCheckProgress({ done: 0, total: movies.length });
 
-    // Processa pequenos lotes para atualizar a tela durante a verificação,
-    // sem disparar centenas de requisições ao mesmo tempo.
-    const batchSize = 5;
+    // Testa em pequenos lotes no próprio navegador, usando o mesmo tipo
+    // de elemento e os mesmos eventos de reprodução do player principal.
+    const batchSize = 3;
     let completed = 0;
-    let hadErrors = false;
     try {
       for (let i = 0; i < movies.length; i += batchSize) {
         const batch = movies.slice(i, i + batchSize);
-        try {
-          const result = await checkMovieLinks({
-            data: {
-              password,
-              movies: batch.map(({ id, video_url }) => ({ id, video_url })),
-            },
-          });
-          setLinkChecks((current) => [...current, ...result.results]);
-        } catch {
-          hadErrors = true;
-          setLinkChecks((current) => [
-            ...current,
-            ...batch.map((movie) => ({
+        const results = await Promise.all(batch.map(async (movie) => {
+          try {
+            return { id: movie.id, ...(await testBrowserPlayback(movie.video_url)) };
+          } catch {
+            return {
               id: movie.id,
               status: "unknown" as const,
-              message: "Não foi possível concluir a verificação deste link",
-            })),
-          ]);
-        }
+              message: "Não foi possível concluir o teste neste navegador",
+            };
+          }
+        }));
+        setLinkChecks((current) => [...current, ...results]);
         completed += batch.length;
         setCheckProgress({ done: completed, total: movies.length });
       }
       setCheckedAt(new Date().toISOString());
-      if (hadErrors) setError("Alguns links não puderam ser verificados. Confira os resultados marcados como não confirmados.");
     } finally {
       setCheckingLinks(false);
     }
@@ -673,7 +751,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     <label htmlFor="log-status-filter" className="field-label">Filtrar por status</label>
                     <select id="log-status-filter" className="field" value={logFilter} onChange={(e) => setLogFilter(e.target.value as typeof logFilter)}>
                     <option value="todos">Todos os status ({linkChecks.length})</option>
-                    <option value="ok">Arquivo respondendo ({linkChecks.filter((item) => item.status === "ok").length})</option>
+                    <option value="ok">Reprodução iniciada ({linkChecks.filter((item) => item.status === "ok").length})</option>
                     <option value="expired">Link expirado / indisponível ({linkChecks.filter((item) => item.status === "expired").length})</option>
                     <option value="warning">Atenção ({linkChecks.filter((item) => item.status === "warning").length})</option>
                     <option value="unknown">Não confirmado ({linkChecks.filter((item) => item.status === "unknown").length})</option>
@@ -693,7 +771,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                 )}
                 {linkChecks.length > 0 && (
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "ok").length}</p><p className="text-xs text-muted-foreground">Vídeos identificados</p></div>
+                    <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "ok").length}</p><p className="text-xs text-muted-foreground">Reproduções iniciadas</p></div>
                     <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "expired").length}</p><p className="text-xs text-muted-foreground">Indisponíveis</p></div>
                     <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "warning").length}</p><p className="text-xs text-muted-foreground">Atenção</p></div>
                     <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "unknown").length}</p><p className="text-xs text-muted-foreground">Não confirmados</p></div>
@@ -706,7 +784,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                   {filteredLinkChecks.map((item) => {
                     const movie = movies.find((m) => m.id === item.id);
                     if (!movie) return null;
-                    const label = item.status === "ok" ? "Vídeo identificado" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Precisa de atenção" : "Não confirmado";
+                    const label = item.status === "ok" ? "Reprodução iniciada" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Precisa de atenção" : "Não confirmado";
                     const color = item.status === "ok" ? "text-green-500" : item.status === "expired" ? "text-destructive" : "text-amber-500";
                     return (
                       <div key={item.id} className="admin-log-row rounded-lg p-3">
@@ -721,7 +799,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">O teste analisa a resposta do servidor e procura assinaturas de formatos de vídeo comuns. Um resultado positivo não garante reprodução em todos os players; alguns provedores bloqueiam verificações automatizadas.</p>
+                <p className="text-xs text-muted-foreground">O teste usa o player HTML5 do navegador e confirma quando o evento de reprodução é iniciado. Provedores incorporados por iframe não podem ser confirmados automaticamente e aparecem como não confirmados.</p>
               </section>
             )}
           </>
