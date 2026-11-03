@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { addMovie, checkMovieLinks, deleteMovie, updateMovie, verifyAdmin } from "@/lib/movies.functions";
+import { addCategory, addMovie, checkMovieLinks, deleteCategory, deleteMovie, reorderCategories, updateMovie, verifyAdmin } from "@/lib/movies.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -26,9 +26,16 @@ type Movie = {
   description: string;
   rating: string;
   year: number | null;
+  views_count?: number;
 };
 
 const RATINGS = ["Livre", "10", "12", "14", "16", "18"];
+type Category = { id: string; name: string; position: number };
+function shuffle<T>(arr: T[]) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; }
+  return a;
+}
 
 function embedUrl(url: string) {
   const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
@@ -73,9 +80,17 @@ function Index() {
     localStorage.setItem("theme", dark ? "dark" : "light");
   }, [dark]);
 
+  const [cats, setCats] = useState<Category[]>([]);
+  const [shuffled, setShuffled] = useState<Movie[]>([]);
   const load = async () => {
-    const { data } = await supabase.from("movies").select("*").order("created_at", { ascending: false });
-    setMovies((data as Movie[]) ?? []);
+    const [{ data }, { data: c }] = await Promise.all([
+      supabase.from("movies").select("*").order("created_at", { ascending: false }),
+      supabase.from("categories").select("id,name,position").order("position"),
+    ]);
+    const list = (data as Movie[]) ?? [];
+    setMovies(list);
+    setShuffled(shuffle(list));
+    setCats((c as Category[]) ?? []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -111,14 +126,15 @@ function Index() {
     };
   }, []);
 
-  const categories = useMemo(() => ["Todos", ...Array.from(new Set(movies.map((m) => m.category)))], [movies]);
+  const categories = useMemo(() => ["Todos", ...cats.map((c) => c.name).filter((n) => movies.some((m) => m.category === n))], [movies, cats]);
   const grouped = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = movies.filter((m) => (filter === "Todos" || m.category === filter) && (!q || m.title.toLowerCase().includes(q)));
+    const list = shuffled.filter((m) => (filter === "Todos" || m.category === filter) && (!q || m.title.toLowerCase().includes(q)));
     if (filter !== "Todos" || q) return list.length ? [[filter === "Todos" ? "Resultados" : filter, list] as [string, Movie[]]] : [];
     const map = new Map<string, Movie[]>();
-    list.forEach((m) => map.set(m.category, [...(map.get(m.category) ?? []), m]));
-    return Array.from(map.entries());
+    cats.forEach((c) => map.set(c.name, []));
+    list.forEach((m) => { const k = m.category && map.has(m.category) ? m.category : "Sem categoria"; map.set(k, [...(map.get(k) ?? []), m]); });
+    return Array.from(map.entries()).filter(([, l]) => l.length > 0);
   }, [movies, filter, query]);
   const showHero = filter === "Todos" && !query.trim();
   const featured = showHero ? movies[0] : undefined;
@@ -201,7 +217,7 @@ function Index() {
         </div>
       </footer>
       {playing && <Player movie={playing} movies={movies} onClose={() => setPlaying(null)} onPick={openMovie} />}
-      {adminOpen && <AdminPanel movies={movies} onClose={() => setAdminOpen(false)} onChange={load} />}
+      {adminOpen && <AdminPanel movies={movies} categories={cats} onClose={() => setAdminOpen(false)} onChange={load} />}
     </div>
   );
 }
@@ -373,7 +389,7 @@ function Player({ movie, movies, onClose, onPick }: { movie: Movie; movies: Movi
   );
 }
 
-function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: () => void; onChange: () => void }) {
+function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]; categories: Category[]; onClose: () => void; onChange: () => void }) {
   const [password, setPassword] = useState("");
   const [authed, setAuthed] = useState(false);
   const [error, setError] = useState("");
@@ -382,7 +398,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
   const [form, setForm] = useState(empty);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adminQuery, setAdminQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"cadastro" | "logs">("cadastro");
+  const [activeTab, setActiveTab] = useState<"cadastro" | "categorias" | "logs">("cadastro");
   const [linkChecks, setLinkChecks] = useState<Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>>([]);
   const [checkingLinks, setCheckingLinks] = useState(false);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
@@ -464,6 +480,27 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
     await deleteMovie({ data: { id, password } }); onChange();
   };
 
+  const [newCat, setNewCat] = useState("");
+  const runCat = async (fn: () => Promise<unknown>) => {
+    setError(""); setBusy(true);
+    try { await fn(); onChange(); } catch (err) { setError(err instanceof Error ? err.message : "Erro"); }
+    setBusy(false);
+  };
+  const createCat = (e: React.FormEvent) => {
+    e.preventDefault();
+    void runCat(async () => { await addCategory({ data: { password, name: newCat } }); setNewCat(""); });
+  };
+  const moveCat = (i: number, dir: number) => {
+    const ids = categories.map((c) => c.id);
+    [ids[i], ids[i + dir]] = [ids[i + dir]!, ids[i]!];
+    void runCat(() => reorderCategories({ data: { password, ids } }));
+  };
+  const removeCat = (c: Category) => {
+    const n = movies.filter((m) => m.category === c.name).length;
+    if (!confirm(n ? `Excluir "${c.name}"? ${n} filme(s) ficarão sem categoria.` : `Excluir "${c.name}"?`)) return;
+    void runCat(() => deleteCategory({ data: { password, id: c.id } }));
+  };
+
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm({ ...form, [k]: e.target.value });
 
@@ -493,21 +530,48 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
               <div className="admin-stat"><span className="admin-stat-icon admin-good">●</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "ok").length}</span><span className="admin-stat-label">Links respondendo</span></div>
               <div className="admin-stat"><span className="admin-stat-icon admin-alert">!</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length}</span><span className="admin-stat-label">Precisam de atenção</span></div>
             </div>
-            <div className="admin-tabs mb-6 grid grid-cols-2 gap-2">
+            <div className="admin-tabs mb-6 grid grid-cols-3 gap-2">
               <button type="button" onClick={() => setActiveTab("cadastro")} className={activeTab === "cadastro" ? "admin-tab admin-tab-active" : "admin-tab"}><span>＋</span> Cadastrar</button>
+              <button type="button" onClick={() => setActiveTab("categorias")} className={activeTab === "categorias" ? "admin-tab admin-tab-active" : "admin-tab"}><span>☰</span> Categorias</button>
               <button type="button" onClick={() => setActiveTab("logs")} className={activeTab === "logs" ? "admin-tab admin-tab-active" : "admin-tab"}>
                 <span>◷</span> Logs {linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length > 0 && <span className="ml-1">({linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length})</span>}
               </button>
             </div>
             {activeTab === "logs" && error && <p className="mb-3 text-sm text-destructive">{error}</p>}
+            {activeTab === "categorias" && (
+              <section className="space-y-4">
+                <form onSubmit={createCat} className="flex gap-2">
+                  <input className="field admin-field flex-1" placeholder="Nova categoria (ex.: Terror)" value={newCat} onChange={(e) => setNewCat(e.target.value)} />
+                  <button className="btn-primary" disabled={busy || !newCat.trim()}>Adicionar</button>
+                </form>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <p className="text-xs text-muted-foreground">Use as setas para mudar a ordem em que as categorias aparecem no site.</p>
+                <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                  {categories.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma categoria ainda.</p>}
+                  {categories.map((c, i) => (
+                    <div key={c.id} className="admin-movie-row flex items-center gap-2 rounded-lg p-3">
+                      <span className="w-6 text-xs text-muted-foreground">{i + 1}</span>
+                      <div className="min-w-0 flex-1"><p className="truncate text-sm">{c.name}</p><p className="text-xs text-muted-foreground">{movies.filter((m) => m.category === c.name).length} filme(s)</p></div>
+                      <button type="button" className="admin-action" aria-label="Subir" disabled={busy || i === 0} onClick={() => moveCat(i, -1)}>▲</button>
+                      <button type="button" className="admin-action" aria-label="Descer" disabled={busy || i === categories.length - 1} onClick={() => moveCat(i, 1)}>▼</button>
+                      <button type="button" className="admin-action admin-remove" disabled={busy} onClick={() => removeCat(c)}>Excluir</button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
             {activeTab === "cadastro" && <>
             <form onSubmit={submit} className="admin-form space-y-4">
               <div><label className="field-label">Nome do filme</label><input required className="field admin-field" placeholder="Ex.: Harry Potter e a Pedra Filosofal" value={form.title} onChange={set("title")} /></div>
               <div><label className="field-label">Capa (link da imagem)</label><input required type="url" placeholder="https://..." className="field admin-field" value={form.cover_url} onChange={set("cover_url")} /></div>
               <div><label className="field-label">Link do vídeo</label><input required type="url" placeholder="YouTube, Vimeo, Google Drive ou .mp4" className="field admin-field" value={form.video_url} onChange={set("video_url")} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="field-label">Categoria</label><input required list="cats" className="field admin-field" placeholder="Ex.: Terror" value={form.category} onChange={set("category")} />
-                  <datalist id="cats">{Array.from(new Set(movies.map((m) => m.category))).map((c) => <option key={c} value={c} />)}</datalist></div>
+                <div><label className="field-label">Categoria</label>
+                  <select className="field admin-field" value={form.category} onChange={set("category")}>
+                    <option value="">Sem categoria</option>
+                    {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    {form.category && !categories.some((c) => c.name === form.category) && <option value={form.category}>{form.category}</option>}
+                  </select></div>
                 <div><label className="field-label">Ano do filme</label><input type="number" min="1888" max="2100" className="field admin-field" placeholder="Ex.: 2024" value={form.year ?? ""} onChange={(e) => setForm({ ...form, year: e.target.value ? Number(e.target.value) : null })} /></div>
                 <div><label className="field-label">Classificação</label>
                   <select className="field admin-field" value={form.rating} onChange={set("rating")}>{RATINGS.map((r) => <option key={r} value={r}>{r === "Livre" ? "Livre" : `${r} anos`}</option>)}</select></div>
@@ -528,7 +592,7 @@ function AdminPanel({ movies, onClose, onChange }: { movies: Movie[]; onClose: (
                 {adminList.map((m) => (
                   <div key={m.id} className="admin-movie-row flex items-center gap-3 rounded-lg p-3">
                     <img src={m.cover_url} alt="" className="h-12 w-9 rounded object-cover" />
-                    <div className="min-w-0 flex-1"><p className="truncate text-sm">{m.title}</p><p className="truncate text-xs text-muted-foreground">{m.category} · {m.rating === "Livre" ? "Livre" : `${m.rating} anos`}</p></div>
+                    <div className="min-w-0 flex-1"><p className="truncate text-sm">{m.title}</p><p className="truncate text-xs text-muted-foreground">{m.category || "Sem categoria"} · {m.rating === "Livre" ? "Livre" : `${m.rating} anos`}</p></div>
                     <button className="admin-action admin-edit" onClick={() => startEdit(m)}>Editar</button>
                     <button className="admin-action admin-remove" onClick={() => remove(m.id)}>Remover</button>
                   </div>

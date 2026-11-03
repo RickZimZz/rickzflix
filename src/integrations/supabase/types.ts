@@ -45,6 +45,8 @@ export type Database = {
           rating: string
           title: string
           video_url: string
+          views_count: number
+          year: number | null
         }
         Insert: {
           category: string
@@ -55,6 +57,8 @@ export type Database = {
           rating?: string
           title: string
           video_url: string
+          views_count?: number
+          year?: number | null
         }
         Update: {
           category?: string
@@ -65,6 +69,8 @@ export type Database = {
           rating?: string
           title?: string
           video_url?: string
+          views_count?: number
+          year?: number | null
         }
         Relationships: []
       }

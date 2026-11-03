@@ -15,6 +15,13 @@
       "when": 1793664490944,
       "tag": "0001_create_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793664562166,
+      "tag": "0002_add_movie_year_views",
+      "breakpoints": true
     }
   ]
 }

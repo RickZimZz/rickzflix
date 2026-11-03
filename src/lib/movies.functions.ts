@@ -169,7 +169,7 @@ export const reorderCategories = createServerFn({ method: "POST" })
     checkPassword(data.password);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     for (let i = 0; i < data.ids.length; i++) {
-      const { error } = await supabaseAdmin.from("categories").update({ position: i }).eq("id", data.ids[i]);
+      const { error } = await supabaseAdmin.from("categories").update({ position: i }).eq("id", data.ids[i]!);
       if (error) throw new Error(error.message);
     }
     return { ok: true };
