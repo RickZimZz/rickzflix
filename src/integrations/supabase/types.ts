@@ -74,27 +74,6 @@ export type Database = {
         }
         Relationships: []
       }
-      movie_reports: {
-        Row: {
-          created_at: string
-          id: string
-          movie_id: string
-          movie_title: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          movie_id: string
-          movie_title: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          movie_id?: string
-          movie_title?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
