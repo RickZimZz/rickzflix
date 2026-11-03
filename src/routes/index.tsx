@@ -268,12 +268,31 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
   };
   const toggle = () => { const v = vid.current; if (!v) return; if (v.paused) v.play().catch(() => {}); else v.pause(); poke(); };
   const skip = (d: number) => { const v = vid.current; if (!v) return; v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + d)); setFlash(d > 0 ? "+10s" : "-10s"); setTimeout(() => setFlash(null), 600); poke(); };
-  const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else wrap.current?.requestFullscreen?.(); };
+  const full = async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => {});
+      return;
+    }
+    const player = wrap.current;
+    if (!player?.requestFullscreen) return;
+    try {
+      await player.requestFullscreen();
+      // Android browsers can lock orientation while an element is fullscreen.
+      const orientation = screen.orientation as ScreenOrientation & { lock?: (orientation: "landscape") => Promise<void> };
+      await orientation.lock?.("landscape");
+    } catch {
+      // Orientation lock is optional; fullscreen should still work when unsupported.
+    }
+  };
   const setVolume = (n: number) => { const v = vid.current; if (!v) return; v.volume = n; v.muted = n === 0; setVol(n); setMuted(n === 0); };
   const cycleRate = () => { const rates = [1, 1.25, 1.5, 2, 0.5, 0.75]; const n = rates[(rates.indexOf(rate) + 1) % rates.length] ?? 1; if (vid.current) vid.current.playbackRate = n; setRate(n); };
 
   useEffect(() => {
-    const onFs = () => setIsFull(!!document.fullscreenElement);
+    const onFs = () => {
+      const active = !!document.fullscreenElement;
+      setIsFull(active);
+      if (!active) screen.orientation?.unlock?.();
+    };
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === "INPUT" && (e.target as HTMLInputElement).type !== "range") return;
       if (e.key === " " || e.key === "k") { e.preventDefault(); toggle(); }
