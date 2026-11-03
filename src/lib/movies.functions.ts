@@ -80,36 +80,21 @@ async function requestVideoStatus(rawUrl: string) {
       return { status: "warning" as const, message: `Resposta HTTP ${response.status}` };
     }
 
-    const contentType = (response.headers.get("content-type") ?? "")
-      .split(";")[0]
-      .trim()
-      .toLowerCase();
-    const isVideoContent =
-      contentType.startsWith("video/") ||
-      ["application/vnd.apple.mpegurl", "application/x-mpegurl", "application/dash+xml"].includes(contentType);
-
-    if (!isVideoContent) {
-      await response.body?.cancel().catch(() => undefined);
-      return {
-        status: "unknown" as const,
-        message: "O endereço respondeu, mas entregou uma página ou formato que não confirma um vídeo reproduzível",
-      };
-    }
-
-    // Lê apenas um pequeno trecho para confirmar que o host realmente entregou bytes.
+    // O servidor respondeu com sucesso. Lê um pequeno trecho do arquivo,
+    // sem exigir um Content-Type específico (muitos hosts entregam MP4 como octet-stream).
     const reader = response.body?.getReader();
     if (!reader) {
-      return { status: "unknown" as const, message: "O servidor não entregou conteúdo para validar" };
+      return { status: "warning" as const, message: "O servidor respondeu, mas não entregou o arquivo" };
     }
     const firstChunk = await reader.read().catch(() => ({ done: true as const, value: undefined }));
     await reader.cancel().catch(() => undefined);
     if (firstChunk.done || !firstChunk.value?.byteLength) {
-      return { status: "warning" as const, message: "O servidor respondeu, mas não entregou dados do vídeo" };
+      return { status: "warning" as const, message: "O servidor respondeu, mas não entregou dados do arquivo" };
     }
 
     return {
       status: "ok" as const,
-      message: "O servidor entregou dados de vídeo; a reprodução ainda depende do formato e das permissões do player",
+      message: `Arquivo MP4 respondendo (HTTP ${response.status})`,
     };
   }
   return { status: "unknown" as const, message: "Não foi possível seguir o link" };
