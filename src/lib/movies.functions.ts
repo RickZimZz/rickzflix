@@ -234,3 +234,37 @@ export const deleteCategory = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+
+export const reportMovieIssue = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ movieId: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: movie, error: movieError } = await supabaseAdmin
+      .from("movies")
+      .select("id,title")
+      .eq("id", data.movieId)
+      .single();
+    if (movieError || !movie) throw new Error("Filme não encontrado");
+
+    const { error } = await supabaseAdmin.from("movie_reports").insert({
+      movie_id: movie.id,
+      movie_title: movie.title,
+    });
+    if (error) throw new Error("Não foi possível enviar o reporte");
+    return { ok: true };
+  });
+
+export const getMovieReports = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ password: z.string().max(200) }).parse(d))
+  .handler(async ({ data }) => {
+    checkPassword(data.password);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: reports, error } = await supabaseAdmin
+      .from("movie_reports")
+      .select("id,movie_id,movie_title,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) throw new Error("Não foi possível carregar os reportes");
+    return { reports: reports ?? [] };
+  });
