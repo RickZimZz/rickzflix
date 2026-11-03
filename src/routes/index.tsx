@@ -246,7 +246,7 @@ type BrowserPlaybackResult = {
 
 // Usa o mesmo elemento HTMLVideoElement do player. O teste é feito no
 // navegador do administrador, respeitando os formatos suportados pelo browser.
-function testBrowserPlayback(videoUrl: string): Promise<BrowserPlaybackResult> {
+function testBrowserPlayback(videoUrl: string, attempt = 0): Promise<BrowserPlaybackResult> {
   const embedded = embedUrl(videoUrl);
   if (embedded.type === "iframe") {
     return Promise.resolve({
@@ -266,7 +266,7 @@ function testBrowserPlayback(videoUrl: string): Promise<BrowserPlaybackResult> {
           ? "O vídeo carregou, mas não foi possível confirmar o início da reprodução no tempo limite"
           : "O navegador não conseguiu carregar o vídeo no tempo limite",
       });
-    }, 12000);
+    }, 15000);
 
     const cleanup = () => {
       window.clearTimeout(timeout);
@@ -309,19 +309,31 @@ function testBrowserPlayback(videoUrl: string): Promise<BrowserPlaybackResult> {
       status: "ok",
       message: "O navegador iniciou a reprodução do vídeo com sucesso",
     });
+    const handleMediaFailure = (detail: string) => {
+      if (settled) return;
+      if (attempt === 0) {
+        // Uma segunda tentativa reduz falsos alertas causados por falhas transitórias.
+        settled = true;
+        cleanup();
+        resolve(testBrowserPlayback(videoUrl, 1));
+        return;
+      }
+      finish({
+        // O evento de mídia não informa HTTP status; não é seguro afirmar
+        // que o link expirou. Mesmo após retry, o resultado fica inconclusivo.
+        status: "unknown",
+        message: `${detail}. O teste foi repetido e o navegador não confirmou a reprodução; confira manualmente no player`,
+      });
+    };
+
     video.onerror = () => {
       const code = video.error?.code;
       const detail = code === 3
-        ? "Falha ao decodificar o vídeo: arquivo ou codec incompatível"
+        ? "Falha ao decodificar o vídeo: possível incompatibilidade de codec"
         : code === 4
-          ? "O navegador não conseguiu usar esta origem ou formato de vídeo"
-          : "Falha de rede ao carregar o vídeo: link indisponível ou servidor não respondeu";
-      finish({
-        // Se o elemento HTML5 emitiu erro, o player não conseguiu reproduzir
-        // este endereço. O motivo técnico fica visível na mensagem do log.
-        status: "expired",
-        message: detail,
-      });
+          ? "O navegador recusou a origem ou o formato do vídeo"
+          : "Falha de rede durante o carregamento";
+      handleMediaFailure(detail);
     };
     video.onstalled = () => {
       // Alguns provedores pausam temporariamente o envio; o timeout decide.
@@ -330,13 +342,9 @@ function testBrowserPlayback(videoUrl: string): Promise<BrowserPlaybackResult> {
     video.src = embedded.src;
     video.load();
     video.play().catch(() => {
-      // Se já existe erro nativo de mídia, classificar como indisponível.
-      // Sem erro nativo, manter como inconclusivo para não gerar falso positivo.
+      // Erro nativo: repetir uma vez antes de marcar como inconclusivo.
       if (!settled && video.error) {
-        finish({
-          status: "expired",
-          message: "O player não conseguiu abrir este vídeo (falha de mídia ou origem indisponível)",
-        });
+        handleMediaFailure("O player encontrou uma falha ao abrir o vídeo");
       } else if (!settled) {
         finish({
           status: "unknown",
@@ -524,10 +532,30 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adminQuery, setAdminQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"cadastro" | "categorias" | "logs">("cadastro");
-  const [linkChecks, setLinkChecks] = useState<Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>>([]);
+  const [linkChecks, setLinkChecks] = useState<Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>>(() => {
+    try {
+      const saved = localStorage.getItem("rickzflix-link-checks");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [checkingLinks, setCheckingLinks] = useState(false);
   const [checkProgress, setCheckProgress] = useState({ done: 0, total: 0 });
-  const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [checkedAt, setCheckedAt] = useState<string | null>(() => {
+    try { return localStorage.getItem("rickzflix-link-checks-at"); } catch { return null; }
+  });
+
+  // Mantém os logs ao fechar/reabrir o painel e também após atualizar a página.
+  useEffect(() => {
+    try {
+      localStorage.setItem("rickzflix-link-checks", JSON.stringify(linkChecks));
+      if (checkedAt) localStorage.setItem("rickzflix-link-checks-at", checkedAt);
+      else localStorage.removeItem("rickzflix-link-checks-at");
+    } catch {
+      // Se o armazenamento estiver indisponível, a verificação continua normalmente.
+    }
+  }, [linkChecks, checkedAt]);
   const [logFilter, setLogFilter] = useState<"todos" | "ok" | "expired" | "warning" | "unknown">("todos");
   const [logQuery, setLogQuery] = useState("");
   const filteredLinkChecks = linkChecks.filter((item) => {
