@@ -242,7 +242,7 @@ function I({ d, size = 22 }: { d: React.ReactNode; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>{d}</svg>;
 }
 
-function VideoPlayer({ src, title, movieId }: { src: string; title: string; movieId: string }) {
+function VideoPlayer({ src, title }: { src: string; title: string }) {
   const wrap = useRef<HTMLDivElement>(null);
   const vid = useRef<HTMLVideoElement>(null);
   const hideT = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -325,7 +325,7 @@ function VideoPlayer({ src, title, movieId }: { src: string; title: string; movi
         className="vp-video" onClick={() => { if (!show && !paused) poke(); else toggle(); }} onDoubleClick={full}
         onPlay={() => { setPaused(false); poke(); }} onPause={() => { setPaused(true); setShow(true); }}
         onWaiting={() => setWaiting(true)} onPlaying={() => setWaiting(false)} onCanPlay={() => setWaiting(false)}
-        onError={() => { setError(true); setWaiting(false); void supabase.from("playback_failures").upsert({ movie_id: movieId, failed_at: new Date().toISOString() }, { onConflict: "movie_id" }); }}
+        onError={() => { setError(true); setWaiting(false); }}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
         onProgress={(e) => { const b = e.currentTarget.buffered; if (b.length) setBuffered(b.end(b.length - 1)); }}
         onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
@@ -381,7 +381,7 @@ function Player({ movie, movies, onClose, onPick }: { movie: Movie; movies: Movi
             <iframe key={movie.id} src={e.src} className="h-full w-full" allow="autoplay; fullscreen; encrypted-media" allowFullScreen title={movie.title} />
           </div>
         ) : (
-          <VideoPlayer key={movie.id} src={e.src} title={movie.title} movieId={movie.id} />
+          <VideoPlayer key={movie.id} src={e.src} title={movie.title} />
         )}
         <div className="mt-5">
           <div className="flex flex-wrap items-center gap-2"><RatingBadge r={movie.rating} /><span className="text-sm text-muted-foreground">{movie.category}{movie.year ? ` (${movie.year})` : ""}</span></div>
@@ -422,7 +422,6 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
   const [logFilter, setLogFilter] = useState<"todos" | "ok" | "expired" | "warning">("todos");
   const [logQuery, setLogQuery] = useState("");
-  const [playbackFailures, setPlaybackFailures] = useState<Array<{ movie_id: string; failed_at: string }>>([]);
   const filteredLinkChecks = linkChecks.filter((item) => {
     const movie = movies.find((m) => m.id === item.id);
     const matchesStatus = logFilter === "todos" || item.status === logFilter;
@@ -452,8 +451,6 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
   useEffect(() => {
     if (authed) {
       void runLinkCheck();
-      void supabase.from("playback_failures").select("movie_id,failed_at").order("failed_at", { ascending: false })
-        .then(({ data }) => setPlaybackFailures((data ?? []) as Array<{ movie_id: string; failed_at: string }>));
     }
   }, [authed, movies]);
 
@@ -686,31 +683,6 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                       </div>
                     );
                   })}
-                </div>
-                <div className="border-t border-border pt-4">
-                  <h3 className="font-semibold">Falhas na reprodução</h3>
-                  <p className="mb-3 text-xs text-muted-foreground">Filmes que apresentaram erro no player.</p>
-                  {playbackFailures.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhuma falha de reprodução registrada.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {playbackFailures.map((failure) => {
-                        const movie = movies.find((m) => m.id === failure.movie_id);
-                        if (!movie) return null;
-                        return (
-                          <div key={failure.movie_id} className="admin-log-row rounded-lg p-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">{movie.title}</p>
-                                <p className="mt-1 text-xs text-muted-foreground">{new Date(failure.failed_at).toLocaleString("pt-BR")}</p>
-                              </div>
-                              <button type="button" className="shrink-0 text-sm text-primary" onClick={() => startEdit(movie)}>Atualizar link</button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">A verificação analisa a resposta do servidor e o tipo de conteúdo, mas não reproduz o vídeo. Páginas de serviços como YouTube e Google Drive podem aparecer como “Não verificado”; abra o player para confirmar a reprodução.</p>
               </section>
