@@ -41,9 +41,9 @@ async function requestVideoStatus(rawUrl: string) {
     const response = await fetch(url, {
       method: "GET",
       redirect: "manual",
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(12000),
       headers: {
-        range: "bytes=0-1023",
+        range: "bytes=0-65535",
         "user-agent": "Mozilla/5.0 (compatible; RickZFlix-Link-Checker/1.0)",
         accept: "video/*,application/vnd.apple.mpegurl,application/x-mpegURL,application/dash+xml,*/*;q=0.8",
       },
@@ -80,21 +80,39 @@ async function requestVideoStatus(rawUrl: string) {
       return { status: "warning" as const, message: `Resposta HTTP ${response.status}` };
     }
 
-    // O servidor respondeu com sucesso. Lê um pequeno trecho do arquivo,
-    // sem exigir um Content-Type específico (muitos hosts entregam MP4 como octet-stream).
+    // Lê até 64 KB para confirmar que o servidor está realmente entregando dados.
+    // O limite evita baixar o filme inteiro caso o host ignore o cabeçalho Range.
+    // Não exige Content-Type video/* porque alguns hosts usam application/octet-stream.
     const reader = response.body?.getReader();
     if (!reader) {
       return { status: "warning" as const, message: "O servidor respondeu, mas não entregou o arquivo" };
     }
-    const firstChunk = await reader.read().catch(() => ({ done: true as const, value: undefined }));
-    await reader.cancel().catch(() => undefined);
-    if (firstChunk.done || !firstChunk.value?.byteLength) {
+
+    let bytesRead = 0;
+    let readFailed = false;
+    try {
+      while (bytesRead < 65536) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        bytesRead += chunk.value?.byteLength ?? 0;
+        if (!chunk.value?.byteLength) break;
+      }
+    } catch {
+      readFailed = true;
+    } finally {
+      await reader.cancel().catch(() => undefined);
+    }
+
+    if (readFailed) {
+      return { status: "warning" as const, message: "Falha ao receber os dados do arquivo" };
+    }
+    if (bytesRead === 0) {
       return { status: "warning" as const, message: "O servidor respondeu, mas não entregou dados do arquivo" };
     }
 
     return {
       status: "ok" as const,
-      message: `Arquivo MP4 respondendo (HTTP ${response.status})`,
+      message: `Arquivo acessível: ${bytesRead} bytes recebidos (HTTP ${response.status})`,
     };
   }
   return { status: "unknown" as const, message: "Não foi possível seguir o link" };
