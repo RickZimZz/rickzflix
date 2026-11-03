@@ -1,14 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 function isAllowedHostname(hostname: string) {
-  const host = hostname.toLowerCase().replace(/\\.$/, "");
+  const normalizedHost = hostname.toLowerCase();
+  const host = normalizedHost.endsWith(".") ? normalizedHost.slice(0, -1) : normalizedHost;
 
   // IPs literais e nomes locais são recusados. O fetch de saída do ambiente
   // Cloudflare faz a resolução de DNS sem depender dos módulos Node.js.
   if (
     host.includes(":") ||
     host.startsWith("[") ||
-    /^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host) ||
+    (host.split(".").length === 4 && host.split(".").every((part) =>
+      part.length > 0 && part.split("").every((char) => char >= "0" && char <= "9")
+    )) ||
     host === "localhost" ||
     host.endsWith(".localhost") ||
     host.endsWith(".local") ||
