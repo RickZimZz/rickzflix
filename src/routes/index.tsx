@@ -441,7 +441,7 @@ function checkVideoInBrowser(url: string): Promise<BrowserVideoCheck> {
     const timer = window.setTimeout(() => finish({
       status: "unknown",
       message: "O navegador demorou para validar o vídeo; teste a reprodução manualmente",
-    }), 12000);
+    }), 6000);
 
     video.preload = "auto";
     video.muted = true;
@@ -492,8 +492,8 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
       // usando o elemento <video> real do navegador.
       const serverOk = result.results.filter((item) => item.status === "ok");
       const browserResults = new Map<string, BrowserVideoCheck>();
-      for (let i = 0; i < serverOk.length; i += 8) {
-        const batch = serverOk.slice(i, i + 8);
+      for (let i = 0; i < serverOk.length; i += 20) {
+        const batch = serverOk.slice(i, i + 20);
         const checked = await Promise.all(batch.map(async (item) => {
           const movie = movies.find((entry) => entry.id === item.id);
           if (!movie) return [item.id, { status: "unknown" as const, message: "Filme não encontrado no catálogo" }] as const;
