@@ -3,7 +3,7 @@ import { z } from "zod";
 function isPublicAddress(address: string, isIP: (value: string) => number) {
   if (isIP(address) === 4) {
     const parts = address.split(".").map(Number);
-    const [a, b, c] = parts;
+    const [a = 0, b = 0, c = 0] = parts;
     return !(a === 0 || a === 10 || a === 127 || a >= 224 ||
       (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) || (a === 192 && (b === 0 || b === 168)) ||
