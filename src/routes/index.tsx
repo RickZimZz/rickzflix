@@ -556,8 +556,14 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     <div key={c.id} className="admin-movie-row flex items-center gap-2 rounded-lg p-3">
                       <span className="w-6 text-xs text-muted-foreground">{i + 1}</span>
                       <div className="min-w-0 flex-1"><p className="truncate text-sm">{c.name}</p><p className="text-xs text-muted-foreground">{movies.filter((m) => m.category === c.name).length} filme(s)</p></div>
-                      <button type="button" className="admin-action" aria-label="Subir" disabled={busy || i === 0} onClick={() => moveCat(i, -1)}>▲</button>
-                      <button type="button" className="admin-action" aria-label="Descer" disabled={busy || i === categories.length - 1} onClick={() => moveCat(i, 1)}>▼</button>
+                      <div className="category-order-controls" aria-label={`Ordenar categoria ${c.name}`}>
+                        <button type="button" className="category-order-btn" aria-label={`Mover ${c.name} para cima`} title="Mover para cima" disabled={busy || i === 0} onClick={() => moveCat(i, -1)}>
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg>
+                        </button>
+                        <button type="button" className="category-order-btn" aria-label={`Mover ${c.name} para baixo`} title="Mover para baixo" disabled={busy || i === categories.length - 1} onClick={() => moveCat(i, 1)}>
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg>
+                        </button>
+                      </div>
                       <button type="button" className="admin-action admin-remove" disabled={busy} onClick={() => removeCat(c)}>Excluir</button>
                     </div>
                   ))}
