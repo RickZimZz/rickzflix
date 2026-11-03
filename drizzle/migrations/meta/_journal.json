@@ -8,6 +8,13 @@
       "when": 1793577847059,
       "tag": "0000_create_movies",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793664490944,
+      "tag": "0001_create_categories",
+      "breakpoints": true
     }
   ]
 }
