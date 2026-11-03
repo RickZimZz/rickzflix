@@ -406,6 +406,53 @@ function Player({ movie, movies, onClose, onPick }: { movie: Movie; movies: Movi
   );
 }
 
+type BrowserVideoCheck = { status: "ok" | "warning" | "unknown"; message: string };
+
+function checkVideoInBrowser(url: string): Promise<BrowserVideoCheck> {
+  // Embedded platforms use an iframe and cannot be verified with an HTML video element.
+  if (embedUrl(url).type !== "video") {
+    return Promise.resolve({
+      status: "unknown",
+      message: "Vídeo incorporado: não é possível confirmar a reprodução pelo teste direto",
+    });
+  }
+
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    let settled = false;
+    const finish = (result: BrowserVideoCheck) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      video.removeEventListener("canplay", onCanPlay);
+      video.removeEventListener("error", onError);
+      video.removeAttribute("src");
+      video.load();
+      resolve(result);
+    };
+    const onCanPlay = () => finish({
+      status: "ok",
+      message: "O navegador carregou o vídeo e confirmou que há dados suficientes para iniciar a reprodução",
+    });
+    const onError = () => finish({
+      status: "warning",
+      message: "O navegador não conseguiu carregar este vídeo; confira o link, o formato ou as permissões",
+    });
+    const timer = window.setTimeout(() => finish({
+      status: "unknown",
+      message: "O navegador demorou para validar o vídeo; teste a reprodução manualmente",
+    }), 12000);
+
+    video.preload = "auto";
+    video.muted = true;
+    video.playsInline = true;
+    video.addEventListener("canplay", onCanPlay, { once: true });
+    video.addEventListener("error", onError, { once: true });
+    video.src = url;
+    video.load();
+  });
+}
+
 function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]; categories: Category[]; onClose: () => void; onChange: () => void }) {
   const [password, setPassword] = useState("");
   const [authed, setAuthed] = useState(false);
@@ -431,6 +478,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
 
   const runLinkCheck = async () => {
     setCheckingLinks(true);
+    setError("");
     try {
       const result = await checkMovieLinks({
         data: {
@@ -438,7 +486,26 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
           movies: movies.map(({ id, video_url }) => ({ id, video_url })),
         },
       });
-      setLinkChecks(result.results);
+
+      // A resposta do servidor sozinha não prova que o player do visitante consegue
+      // carregar o vídeo. Para os links diretos aprovados, fazemos um segundo teste
+      // usando o elemento <video> real do navegador.
+      const serverOk = result.results.filter((item) => item.status === "ok");
+      const browserResults = new Map<string, BrowserVideoCheck>();
+      for (let i = 0; i < serverOk.length; i += 8) {
+        const batch = serverOk.slice(i, i + 8);
+        const checked = await Promise.all(batch.map(async (item) => {
+          const movie = movies.find((entry) => entry.id === item.id);
+          if (!movie) return [item.id, { status: "unknown", message: "Filme não encontrado no catálogo" }] as const;
+          return [item.id, await checkVideoInBrowser(movie.video_url)] as const;
+        }));
+        checked.forEach(([id, status]) => browserResults.set(id, status));
+      }
+
+      setLinkChecks(result.results.map((item) => {
+        const browser = browserResults.get(item.id);
+        return browser ? { ...item, ...browser } : item;
+      }));
       setCheckedAt(result.checkedAt);
     } catch {
       setError("Não foi possível verificar os links agora.");
@@ -550,7 +617,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
           <>
             <div className="admin-stats mb-5 grid grid-cols-3 gap-2">
               <div className="admin-stat"><span className="admin-stat-icon">▣</span><span className="admin-stat-value">{movies.length}</span><span className="admin-stat-label">Filmes no catálogo</span></div>
-              <div className="admin-stat"><span className="admin-stat-icon admin-good">●</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "ok").length}</span><span className="admin-stat-label">Links respondendo</span></div>
+              <div className="admin-stat"><span className="admin-stat-icon admin-good">●</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "ok").length}</span><span className="admin-stat-label">Player testado</span></div>
               <div className="admin-stat"><span className="admin-stat-icon admin-alert">!</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length}</span><span className="admin-stat-label">Precisam de atenção</span></div>
             </div>
             <div className="admin-tabs mb-6 grid grid-cols-3 gap-2">
@@ -652,7 +719,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     <label htmlFor="log-status-filter" className="field-label">Filtrar por status</label>
                     <select id="log-status-filter" className="field" value={logFilter} onChange={(e) => setLogFilter(e.target.value as typeof logFilter)}>
                     <option value="todos">Todos os status ({linkChecks.length})</option>
-                    <option value="ok">Dados de vídeo recebidos ({linkChecks.filter((item) => item.status === "ok").length})</option>
+                    <option value="ok">Player carregou o vídeo ({linkChecks.filter((item) => item.status === "ok").length})</option>
                     <option value="expired">Link expirado / indisponível ({linkChecks.filter((item) => item.status === "expired").length})</option>
                     <option value="warning">Atenção ({linkChecks.filter((item) => item.status === "warning").length})</option>
                     <option value="unknown">Não verificado ({linkChecks.filter((item) => item.status === "unknown").length})</option>
@@ -667,7 +734,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                   {filteredLinkChecks.map((item) => {
                     const movie = movies.find((m) => m.id === item.id);
                     if (!movie) return null;
-                    const label = item.status === "ok" ? "Dados de vídeo recebidos" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Atenção" : "Não verificado";
+                    const label = item.status === "ok" ? "Player carregou o vídeo" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Falha no teste do player" : "Não verificado";
                     const color = item.status === "ok" ? "text-green-500" : item.status === "expired" ? "text-destructive" : item.status === "warning" ? "text-amber-500" : "text-muted-foreground";
                     return (
                       <div key={item.id} className="admin-log-row rounded-lg p-3">
@@ -682,7 +749,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">Agora o teste faz uma requisição GET e confere se o servidor realmente entrega bytes de vídeo. “Dados de vídeo recebidos” não garante compatibilidade do player, codec ou permissões do navegador. Páginas como YouTube e Google Drive podem aparecer como “Não verificado”.</p>
+                <p className="text-xs text-muted-foreground">Além de consultar o servidor, o RickzFlix testa os links diretos aprovados com o elemento de vídeo do navegador e só marca como sucesso quando o evento de carregamento para reprodução é recebido. Links de plataformas incorporadas, como YouTube e Google Drive, ficam como “Não verificado”, pois usam outro player.</p>
               </section>
             )}
           </>
