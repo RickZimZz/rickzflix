@@ -496,7 +496,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
         const batch = serverOk.slice(i, i + 8);
         const checked = await Promise.all(batch.map(async (item) => {
           const movie = movies.find((entry) => entry.id === item.id);
-          if (!movie) return [item.id, { status: "unknown", message: "Filme não encontrado no catálogo" }] as const;
+          if (!movie) return [item.id, { status: "unknown" as const, message: "Filme não encontrado no catálogo" }] as const;
           return [item.id, await checkVideoInBrowser(movie.video_url)] as const;
         }));
         checked.forEach(([id, status]) => browserResults.set(id, status));
