@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { addCategory, addMovie, checkMovieLinks, deleteCategory, deleteMovie, reorderCategories, updateMovie, verifyAdmin } from "@/lib/movies.functions";
+import { addCategory, addMovie, deleteCategory, deleteMovie, getMovieReports, reorderCategories, reportMovieIssue, updateMovie, verifyAdmin } from "@/lib/movies.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -242,7 +242,7 @@ function I({ d, size = 22 }: { d: React.ReactNode; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>{d}</svg>;
 }
 
-function VideoPlayer({ src, title }: { src: string; title: string }) {
+function VideoPlayer({ src, title, movieId }: { src: string; title: string; movieId: string }) {
   const wrap = useRef<HTMLDivElement>(null);
   const vid = useRef<HTMLVideoElement>(null);
   const hideT = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -256,6 +256,9 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
   const [isFull, setIsFull] = useState(false);
   const [waiting, setWaiting] = useState(true);
   const [error, setError] = useState(false);
+  const [reported, setReported] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reportError, setReportError] = useState("");
   const [show, setShow] = useState(true);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -334,7 +337,26 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
       {error && (
         <div className="vp-center flex-col gap-2 px-6 text-center">
           <p className="font-display text-2xl">Não foi possível carregar o vídeo</p>
-          <p className="text-sm opacity-80">O link pode ter expirado ou o site de origem bloqueou a reprodução. Atualize o link no painel de administrador.</p>
+          <p className="text-sm opacity-80">O link pode estar indisponível ou o site de origem pode ter bloqueado a reprodução.</p>
+          {!reported ? (
+            <>
+              <button type="button" className="btn-primary mt-2" disabled={reporting} onClick={async () => {
+                setReporting(true);
+                setReportError("");
+                try {
+                  await reportMovieIssue({ data: { movieId } });
+                  setReported(true);
+                } catch {
+                  setReportError("Não foi possível enviar o reporte. Tente novamente.");
+                } finally {
+                  setReporting(false);
+                }
+              }}>{reporting ? "Enviando…" : "Reportar"}</button>
+              {reportError && <p className="text-xs text-destructive">{reportError}</p>}
+            </>
+          ) : (
+            <p className="mt-2 max-w-md text-sm text-green-400">Nossa equipe já foi avisada sobre esse erro. Por favor, tente novamente mais tarde.</p>
+          )}
         </div>
       )}
       {!error && paused && !waiting && (
@@ -381,7 +403,7 @@ function Player({ movie, movies, onClose, onPick }: { movie: Movie; movies: Movi
             <iframe key={movie.id} src={e.src} className="h-full w-full" allow="autoplay; fullscreen; encrypted-media" allowFullScreen title={movie.title} />
           </div>
         ) : (
-          <VideoPlayer key={movie.id} src={e.src} title={movie.title} />
+          <VideoPlayer key={movie.id} src={e.src} title={movie.title} movieId={movie.id} />
         )}
         <div className="mt-5">
           <div className="flex flex-wrap items-center gap-2"><RatingBadge r={movie.rating} /><span className="text-sm text-muted-foreground">{movie.category}{movie.year ? ` (${movie.year})` : ""}</span></div>
@@ -417,42 +439,27 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adminQuery, setAdminQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"cadastro" | "categorias" | "logs">("cadastro");
-  const [linkChecks, setLinkChecks] = useState<Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>>([]);
-  const [checkingLinks, setCheckingLinks] = useState(false);
-  const [checkedAt, setCheckedAt] = useState<string | null>(null);
-  const [logFilter, setLogFilter] = useState<"todos" | "ok" | "expired" | "warning">("todos");
+  const [reports, setReports] = useState<Array<{ id: string; movie_id: string; movie_title: string; created_at: string }>>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
   const [logQuery, setLogQuery] = useState("");
-  const filteredLinkChecks = linkChecks.filter((item) => {
-    const movie = movies.find((m) => m.id === item.id);
-    const matchesStatus = logFilter === "todos" || item.status === logFilter;
-    const matchesTitle = !logQuery.trim() || movie?.title.toLowerCase().includes(logQuery.trim().toLowerCase());
-    return matchesStatus && matchesTitle;
-  });
+  const filteredReports = reports.filter((report) => report.movie_title.toLowerCase().includes(logQuery.trim().toLowerCase()));
   const adminList = movies.filter((m) => m.title.toLowerCase().includes(adminQuery.trim().toLowerCase()) || m.category.toLowerCase().includes(adminQuery.trim().toLowerCase()));
 
-  const runLinkCheck = async () => {
-    setCheckingLinks(true);
+  const loadReports = async () => {
+    setLoadingReports(true);
     try {
-      const result = await checkMovieLinks({
-        data: {
-          password,
-          movies: movies.map(({ id, video_url }) => ({ id, video_url })),
-        },
-      });
-      setLinkChecks(result.results);
-      setCheckedAt(result.checkedAt);
+      const result = await getMovieReports({ data: { password } });
+      setReports(result.reports);
     } catch {
-      setError("Não foi possível verificar os links agora.");
+      setError("Não foi possível carregar os reportes agora.");
     } finally {
-      setCheckingLinks(false);
+      setLoadingReports(false);
     }
   };
 
   useEffect(() => {
-    if (authed) {
-      void runLinkCheck();
-    }
-  }, [authed, movies]);
+    if (authed) void loadReports();
+  }, [authed]);
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setBusy(true);
@@ -553,14 +560,14 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
           <>
             <div className="admin-stats mb-5 grid grid-cols-3 gap-2">
               <div className="admin-stat"><span className="admin-stat-icon">▣</span><span className="admin-stat-value">{movies.length}</span><span className="admin-stat-label">Filmes no catálogo</span></div>
-              <div className="admin-stat"><span className="admin-stat-icon admin-good">●</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "ok").length}</span><span className="admin-stat-label">Links respondendo</span></div>
-              <div className="admin-stat"><span className="admin-stat-icon admin-alert">!</span><span className="admin-stat-value">{linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length}</span><span className="admin-stat-label">Precisam de atenção</span></div>
+              <div className="admin-stat"><span className="admin-stat-icon admin-good">●</span><span className="admin-stat-value">{reports.length}</span><span className="admin-stat-label">Filmes reportados</span></div>
+              <div className="admin-stat"><span className="admin-stat-icon admin-alert">!</span><span className="admin-stat-value">{reports.length}</span><span className="admin-stat-label">Reportes recebidos</span></div>
             </div>
             <div className="admin-tabs mb-6 grid grid-cols-3 gap-2">
               <button type="button" onClick={() => setActiveTab("cadastro")} className={activeTab === "cadastro" ? "admin-tab admin-tab-active" : "admin-tab"}><span>＋</span> Cadastrar</button>
               <button type="button" onClick={() => setActiveTab("categorias")} className={activeTab === "categorias" ? "admin-tab admin-tab-active" : "admin-tab"}><span>☰</span> Categorias</button>
               <button type="button" onClick={() => setActiveTab("logs")} className={activeTab === "logs" ? "admin-tab admin-tab-active" : "admin-tab"}>
-                <span>◷</span> Logs {linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length > 0 && <span className="ml-1">({linkChecks.filter((item) => item.status === "expired" || item.status === "warning").length})</span>}
+                <span>◷</span> Logs {reports.length > 0 && <span className="ml-1">({reports.length})</span>}
               </button>
             </div>
             {activeTab === "logs" && error && <p className="mb-3 text-sm text-destructive">{error}</p>}
@@ -637,56 +644,38 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
               <section className="admin-logs space-y-4">
                 <div className="admin-section-heading flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="font-semibold">Monitoramento de links</h3>
-                    <p className="text-xs text-muted-foreground">A verificação é executada ao entrar no Admin.</p>
+                    <h3 className="font-semibold">Filmes reportados</h3>
+                    <p className="text-xs text-muted-foreground">Veja os filmes que os usuários sinalizaram com problema na reprodução.</p>
                   </div>
-                  <button type="button" className="btn-primary" onClick={runLinkCheck} disabled={checkingLinks}>
-                    {checkingLinks ? "Verificando…" : "Verificar novamente"}
+                  <button type="button" className="btn-primary" onClick={() => void loadReports()} disabled={loadingReports}>
+                    {loadingReports ? "Atualizando…" : "Atualizar"}
                   </button>
                 </div>
-                {checkedAt && <p className="text-xs text-muted-foreground">Última verificação: {new Date(checkedAt).toLocaleString("pt-BR")}</p>}
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(220px,280px)]">
-                  <div className="relative">
-                    <label htmlFor="log-search" className="field-label">Pesquisar filme</label>
-                    <span className="pointer-events-none absolute left-3 top-[2.55rem] text-muted-foreground"><SearchIcon /></span>
-                    <input id="log-search" className="field pl-10" type="search" placeholder="Digite o nome do filme…" value={logQuery} onChange={(e) => setLogQuery(e.target.value)} />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor="log-status-filter" className="field-label">Filtrar por status</label>
-                    <select id="log-status-filter" className="field" value={logFilter} onChange={(e) => setLogFilter(e.target.value as typeof logFilter)}>
-                    <option value="todos">Todos os status ({linkChecks.length})</option>
-                    <option value="ok">Arquivo respondendo ({linkChecks.filter((item) => item.status === "ok").length})</option>
-                    <option value="expired">Link expirado / indisponível ({linkChecks.filter((item) => item.status === "expired").length})</option>
-                    <option value="warning">Atenção ({linkChecks.filter((item) => item.status === "warning").length})</option>
-                    </select>
-                  </div>
+                <div>
+                  <label htmlFor="log-search" className="field-label">Pesquisar filme</label>
+                  <input id="log-search" className="field" type="search" placeholder="Digite o nome do filme…" value={logQuery} onChange={(e) => setLogQuery(e.target.value)} />
                 </div>
-                {checkingLinks && <p className="text-sm text-muted-foreground">Analisando os links cadastrados…</p>}
-                {!checkingLinks && movies.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme cadastrado para verificar.</p>}
-                {!checkingLinks && movies.length > 0 && linkChecks.length === 0 && <p className="text-sm text-muted-foreground">Ainda não há resultados. Tente verificar novamente.</p>}
+                {loadingReports && <p className="text-sm text-muted-foreground">Carregando reportes…</p>}
+                {!loadingReports && reports.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme foi reportado ainda.</p>}
+                {!loadingReports && reports.length > 0 && filteredReports.length === 0 && <p className="text-sm text-muted-foreground">Nenhum reporte encontrado.</p>}
                 <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-                  {!checkingLinks && linkChecks.length > 0 && filteredLinkChecks.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme encontrado com esse status.</p>}
-                  {filteredLinkChecks.map((item) => {
-                    const movie = movies.find((m) => m.id === item.id);
-                    if (!movie) return null;
-                    const label = item.status === "ok" ? "Respondendo" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Atenção" : "Não verificado";
-                    const color = item.status === "ok" ? "text-green-500" : item.status === "expired" ? "text-destructive" : "text-amber-500";
-                    return (
-                      <div key={item.id} className="admin-log-row rounded-lg p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">{movie.title}</p>
-                            <p className={`mt-1 text-xs ${color}`}>{label} · {item.message}</p>
-                          </div>
-                          <button type="button" className="shrink-0 text-sm text-primary" onClick={() => startEdit(movie)}>Atualizar link</button>
+                  {filteredReports.map((report) => (
+                    <div key={report.id} className="admin-log-row rounded-lg p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{report.movie_title}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Reportado em {new Date(report.created_at).toLocaleString("pt-BR")}</p>
                         </div>
+                        <button type="button" className="shrink-0 text-sm text-primary" onClick={() => {
+                          const movie = movies.find((item) => item.id === report.movie_id);
+                          if (movie) startEdit(movie);
+                        }}>Atualizar link</button>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
-                <p className="text-xs text-muted-foreground">A verificação confirma se o servidor está entregando o arquivo MP4 pela resposta HTTP. Isso não garante que todo player ou dispositivo consiga reproduzi-lo.</p>
               </section>
-            )}
+            )}}
           </>
         )}
       </div>
