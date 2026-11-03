@@ -35,6 +35,18 @@ export type Database = {
         }
         Relationships: []
       }
+      playback_failures: {
+        Row: { failed_at: string; movie_id: string }
+        Insert: { failed_at?: string; movie_id: string }
+        Update: { failed_at?: string; movie_id?: string }
+        Relationships: [{
+          foreignKeyName: "playback_failures_movie_id_fkey"
+          columns: ["movie_id"]
+          isOneToOne: true
+          referencedRelation: "movies"
+          referencedColumns: ["id"]
+        }]
+      }
       movies: {
         Row: {
           category: string
