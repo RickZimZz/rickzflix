@@ -427,6 +427,8 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
   const adminList = movies.filter((m) => m.title.toLowerCase().includes(adminQuery.trim().toLowerCase()) || m.category.toLowerCase().includes(adminQuery.trim().toLowerCase()));
 
   const runLinkCheck = async () => {
+    if (checkingLinks || movies.length === 0) return;
+    setError("");
     setCheckingLinks(true);
     try {
       const result = await checkMovieLinks({
@@ -443,12 +445,6 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
       setCheckingLinks(false);
     }
   };
-
-  useEffect(() => {
-    if (authed) {
-      void runLinkCheck();
-    }
-  }, [authed, movies]);
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setBusy(true);
@@ -634,10 +630,10 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                 <div className="admin-section-heading flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="font-semibold">Monitoramento de links</h3>
-                    <p className="text-xs text-muted-foreground">A verificação é executada ao entrar no Admin.</p>
+                    <p className="text-xs text-muted-foreground">Os links só são testados quando você iniciar a verificação.</p>
                   </div>
-                  <button type="button" className="btn-primary" onClick={runLinkCheck} disabled={checkingLinks}>
-                    {checkingLinks ? "Verificando…" : "Verificar novamente"}
+                  <button type="button" className="btn-primary" onClick={runLinkCheck} disabled={checkingLinks || movies.length === 0}>
+                    {checkingLinks ? "Verificando…" : linkChecks.length ? "Verificar novamente" : "Iniciar verificação"}
                   </button>
                 </div>
                 {checkedAt && <p className="text-xs text-muted-foreground">Última verificação: {new Date(checkedAt).toLocaleString("pt-BR")}</p>}
@@ -654,18 +650,19 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     <option value="ok">Arquivo respondendo ({linkChecks.filter((item) => item.status === "ok").length})</option>
                     <option value="expired">Link expirado / indisponível ({linkChecks.filter((item) => item.status === "expired").length})</option>
                     <option value="warning">Atenção ({linkChecks.filter((item) => item.status === "warning").length})</option>
+                    <option value="unknown">Não confirmado ({linkChecks.filter((item) => item.status === "unknown").length})</option>
                     </select>
                   </div>
                 </div>
                 {checkingLinks && <p className="text-sm text-muted-foreground">Analisando os links cadastrados…</p>}
                 {!checkingLinks && movies.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme cadastrado para verificar.</p>}
-                {!checkingLinks && movies.length > 0 && linkChecks.length === 0 && <p className="text-sm text-muted-foreground">Ainda não há resultados. Tente verificar novamente.</p>}
+                {!checkingLinks && movies.length > 0 && linkChecks.length === 0 && <p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">Nenhuma verificação foi iniciada. Toque em <strong>Iniciar verificação</strong> para testar os {movies.length} links do catálogo.</p>}
                 <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
                   {!checkingLinks && linkChecks.length > 0 && filteredLinkChecks.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme encontrado com esse status.</p>}
                   {filteredLinkChecks.map((item) => {
                     const movie = movies.find((m) => m.id === item.id);
                     if (!movie) return null;
-                    const label = item.status === "ok" ? "Respondendo" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Atenção" : "Não verificado";
+                    const label = item.status === "ok" ? "Vídeo identificado" : item.status === "expired" ? "Link indisponível" : item.status === "warning" ? "Precisa de atenção" : "Não confirmado";
                     const color = item.status === "ok" ? "text-green-500" : item.status === "expired" ? "text-destructive" : "text-amber-500";
                     return (
                       <div key={item.id} className="admin-log-row rounded-lg p-3">
@@ -680,7 +677,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">A verificação confirma se o servidor está entregando o arquivo MP4 pela resposta HTTP. Isso não garante que todo player ou dispositivo consiga reproduzi-lo.</p>
+                <p className="text-xs text-muted-foreground">O teste analisa a resposta do servidor e procura assinaturas de formatos de vídeo comuns. Um resultado positivo não garante reprodução em todos os players; alguns provedores bloqueiam verificações automatizadas.</p>
               </section>
             )}
           </>
