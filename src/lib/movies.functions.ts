@@ -1,33 +1,43 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-function isPublicAddress(address: string, isIP: (value: string) => number) {
-  if (isIP(address) === 4) {
-    const parts = address.split(".").map(Number);
-    const [a = 0, b = 0, c = 0] = parts;
-    return !(a === 0 || a === 10 || a === 127 || a >= 224 ||
-      (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) || (a === 192 && (b === 0 || b === 168)) ||
-      (a === 198 && (b === 18 || b === 19 || b === 51)) ||
-      (a === 203 && b === 0 && c === 113));
-  }
-  // Only allow globally-routable IPv6 addresses; reject local, mapped and special ranges.
-  return isIP(address) === 6 && /^2|^3/.test(address);
+function isAllowedHostname(hostname: string) {
+  const host = hostname.toLowerCase().replace(/\\.$/, "");
+
+  // IPs literais e nomes locais são recusados. O fetch de saída do ambiente
+  // Cloudflare faz a resolução de DNS sem depender dos módulos Node.js.
+  if (
+    host.includes(":") ||
+    host.startsWith("[") ||
+    /^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(host) ||
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".lan") ||
+    host.endsWith(".home") ||
+    host.endsWith(".test") ||
+    host.endsWith(".invalid") ||
+    host === "metadata.google.internal"
+  ) return false;
+
+  const labels = host.split(".");
+  if (labels.length < 2 || labels[labels.length - 1]!.length < 2) return false;
+  return labels.every((label) =>
+    label.length <= 63 &&
+    /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)
+  );
 }
 
 async function assertPublicUrl(rawUrl: string) {
-  const { lookup } = await import("node:dns/promises");
-  const { isIP } = await import("node:net");
   const url = new URL(rawUrl);
-  if (url.protocol !== "https:" || url.username || url.password) {
-    throw new Error("URL não permitida para verificação");
-  }
-  const host = url.hostname.toLowerCase();
-  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || isIP(host)) {
-    throw new Error("Endereço não público");
-  }
-  const addresses = await lookup(host, { all: true, verbatim: true });
-  if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address, isIP))) {
-    throw new Error("Destino não público");
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    (url.port && url.port !== "443") ||
+    !isAllowedHostname(url.hostname)
+  ) {
+    throw new Error("Endereço não permitido para verificação");
   }
   return url;
 }
@@ -82,7 +92,7 @@ async function requestVideoStatus(rawUrl: string) {
 
     // Confirma o tipo de conteúdo e lê somente um pequeno trecho do arquivo.
     const contentType = (response.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
-    const isKnownVideoType =
+    const isRecognizedVideoType =
       contentType.startsWith("video/") ||
       contentType === "application/vnd.apple.mpegurl" ||
       contentType === "application/x-mpegurl" ||
@@ -91,9 +101,10 @@ async function requestVideoStatus(rawUrl: string) {
       contentType === "application/octet-stream" ||
       contentType === "binary/octet-stream" ||
       contentType === "application/download" ||
-      contentType === "text/plain";
+      contentType === "text/plain" ||
+      contentType === "";
 
-    if (!isKnownVideoType && !mayNeedSniffing) {
+    if (!isRecognizedVideoType && !mayNeedSniffing) {
       await response.body?.cancel().catch(() => undefined);
       return {
         status: "warning" as const,
@@ -141,26 +152,36 @@ async function requestVideoStatus(rawUrl: string) {
     }
     const startsWith = (...signature: number[]) =>
       signature.every((byte, index) => sample[index] === byte);
-    const ascii = new TextDecoder().decode(sample.subarray(0, Math.min(sample.length, 512))).trimStart();
+    const ascii = new TextDecoder().decode(sample.subarray(0, Math.min(sample.length, 8192))).trimStart();
+    const lowerAscii = ascii.toLowerCase();
+    const mp4Brand = new TextDecoder().decode(sample.subarray(4, 8));
+    const isMp4 = sample.length >= 8 && mp4Brand === "ftyp";
+    const isWebmOrMatroska = startsWith(0x1a, 0x45, 0xdf, 0xa3);
+    const isFlv = startsWith(0x46, 0x4c, 0x56);
+    const isTransportStream =
+      sample.length >= 377 &&
+      sample[0] === 0x47 &&
+      sample[188] === 0x47 &&
+      sample[376] === 0x47;
+    const isHls =
+      ascii.startsWith("#EXTM3U") &&
+      (ascii.includes("#EXTINF") || ascii.includes("#EXT-X-"));
+    const isDash = lowerAscii.includes("<mpd") && lowerAscii.includes("</mpd");
     const looksLikeVideo =
-      (sample.length >= 8 && sample[0] === 0 && sample[1] === 0 && sample[2] === 0 && ascii.slice(4, 8) === "ftyp") ||
-      startsWith(0x1a, 0x45, 0xdf, 0xa3) ||
-      startsWith(0x46, 0x4c, 0x56) ||
-      startsWith(0x47) ||
-      startsWith(0xff, 0xfb) ||
-      ascii.startsWith("#EXTM3U") ||
-      isKnownVideoType;
+      isMp4 || isWebmOrMatroska || isFlv || isTransportStream || isHls || isDash;
 
     if (!looksLikeVideo) {
       return {
         status: "warning" as const,
-        message: "O link respondeu, mas o conteúdo recebido não parece ser um arquivo de vídeo",
+        message: isRecognizedVideoType
+          ? "O servidor informou formato de vídeo, mas a assinatura do conteúdo não pôde ser confirmada"
+          : "O link respondeu, mas o conteúdo recebido não parece ser um arquivo de vídeo",
       };
     }
 
     return {
       status: "ok" as const,
-      message: `Vídeo confirmado: ${contentType || "formato detectado"} · ${bytesRead} bytes recebidos (HTTP ${response.status})`,
+      message: `Vídeo identificado: ${isHls ? "playlist HLS" : isDash ? "manifesto DASH" : contentType || "assinatura detectada"} · ${bytesRead} bytes recebidos (HTTP ${response.status})`,
     };
   }
   return { status: "unknown" as const, message: "Não foi possível seguir o link" };
