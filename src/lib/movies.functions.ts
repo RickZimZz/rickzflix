@@ -4,8 +4,8 @@ function isAllowedHostname(hostname: string) {
   const normalizedHost = hostname.toLowerCase();
   const host = normalizedHost.endsWith(".") ? normalizedHost.slice(0, -1) : normalizedHost;
 
-  // IPs literais e nomes locais são recusados. O fetch de saída do ambiente
-  // Cloudflare faz a resolução de DNS sem depender dos módulos Node.js.
+  // IPs literais e nomes locais são recusados. A resolução DNS fica a cargo
+  // do runtime Cloudflare, sem importar módulos Node.js incompatíveis.
   if (
     host.includes(":") ||
     host.startsWith("[") ||
@@ -20,6 +20,8 @@ function isAllowedHostname(hostname: string) {
     host.endsWith(".home") ||
     host.endsWith(".test") ||
     host.endsWith(".invalid") ||
+    host.endsWith(".onion") ||
+    host.endsWith(".arpa") ||
     host === "metadata.google.internal"
   ) return false;
 
