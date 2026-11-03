@@ -415,6 +415,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
   const [activeTab, setActiveTab] = useState<"cadastro" | "categorias" | "logs">("cadastro");
   const [linkChecks, setLinkChecks] = useState<Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>>([]);
   const [checkingLinks, setCheckingLinks] = useState(false);
+  const [checkProgress, setCheckProgress] = useState({ done: 0, total: 0 });
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
   const [logFilter, setLogFilter] = useState<"todos" | "ok" | "expired" | "warning" | "unknown">("todos");
   const [logQuery, setLogQuery] = useState("");
@@ -430,17 +431,42 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
     if (checkingLinks || movies.length === 0) return;
     setError("");
     setCheckingLinks(true);
+    setLinkChecks([]);
+    setCheckedAt(null);
+    setCheckProgress({ done: 0, total: movies.length });
+
+    // Processa pequenos lotes para atualizar a tela durante a verificação,
+    // sem disparar centenas de requisições ao mesmo tempo.
+    const batchSize = 5;
+    let completed = 0;
+    let hadErrors = false;
     try {
-      const result = await checkMovieLinks({
-        data: {
-          password,
-          movies: movies.map(({ id, video_url }) => ({ id, video_url })),
-        },
-      });
-      setLinkChecks(result.results);
-      setCheckedAt(result.checkedAt);
-    } catch {
-      setError("Não foi possível verificar os links agora.");
+      for (let i = 0; i < movies.length; i += batchSize) {
+        const batch = movies.slice(i, i + batchSize);
+        try {
+          const result = await checkMovieLinks({
+            data: {
+              password,
+              movies: batch.map(({ id, video_url }) => ({ id, video_url })),
+            },
+          });
+          setLinkChecks((current) => [...current, ...result.results]);
+        } catch {
+          hadErrors = true;
+          setLinkChecks((current) => [
+            ...current,
+            ...batch.map((movie) => ({
+              id: movie.id,
+              status: "unknown" as const,
+              message: "Não foi possível concluir a verificação deste link",
+            })),
+          ]);
+        }
+        completed += batch.length;
+        setCheckProgress({ done: completed, total: movies.length });
+      }
+      setCheckedAt(new Date().toISOString());
+      if (hadErrors) setError("Alguns links não puderam ser verificados. Confira os resultados marcados como não confirmados.");
     } finally {
       setCheckingLinks(false);
     }
@@ -654,7 +680,25 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     </select>
                   </div>
                 </div>
-                {checkingLinks && <p className="text-sm text-muted-foreground">Analisando os links cadastrados…</p>}
+                {checkingLinks && (
+                  <div className="space-y-2" aria-live="polite">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Verificando o catálogo…</span>
+                      <strong className="tabular-nums">{checkProgress.done}/{checkProgress.total}</strong>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${checkProgress.total ? (checkProgress.done / checkProgress.total) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                )}
+                {linkChecks.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "ok").length}</p><p className="text-xs text-muted-foreground">Vídeos identificados</p></div>
+                    <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "expired").length}</p><p className="text-xs text-muted-foreground">Indisponíveis</p></div>
+                    <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "warning").length}</p><p className="text-xs text-muted-foreground">Atenção</p></div>
+                    <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "unknown").length}</p><p className="text-xs text-muted-foreground">Não confirmados</p></div>
+                  </div>
+                )}
                 {!checkingLinks && movies.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme cadastrado para verificar.</p>}
                 {!checkingLinks && movies.length > 0 && linkChecks.length === 0 && <p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">Nenhuma verificação foi iniciada. Toque em <strong>Iniciar verificação</strong> para testar os {movies.length} links do catálogo.</p>}
                 <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
