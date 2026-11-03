@@ -684,7 +684,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">A verificação analisa a resposta do servidor e o tipo de conteúdo, mas não reproduz o vídeo. Páginas de serviços como YouTube e Google Drive podem aparecer como “Não verificado”; abra o player para confirmar a reprodução.</p>
+                <p className="text-xs text-muted-foreground">A verificação confirma se o servidor está entregando o arquivo MP4 pela resposta HTTP. Isso não garante que todo player ou dispositivo consiga reproduzi-lo.</p>
               </section>
             )}
           </>
