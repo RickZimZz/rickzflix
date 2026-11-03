@@ -544,7 +544,8 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
       // Assim, nenhum link bloqueado fica separado dos links indisponíveis.
       return parsed.map((item) => ({
         ...item,
-        status: item.status === "blocked" ? "expired" : item.status,
+        // Resultados antigos bloqueados ou não confirmados entram como expirados.
+        status: item.status === "blocked" || item.status === "unknown" ? "expired" : item.status,
       })) as Array<{ id: string; status: "ok" | "expired" | "warning" | "unknown"; message: string }>;
     } catch {
       return [];
@@ -566,7 +567,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
       // Se o armazenamento estiver indisponível, a verificação continua normalmente.
     }
   }, [linkChecks, checkedAt]);
-  const [logFilter, setLogFilter] = useState<"todos" | "ok" | "expired" | "warning" | "unknown">("todos");
+  const [logFilter, setLogFilter] = useState<"todos" | "ok" | "expired" | "warning">("todos");
   const [logQuery, setLogQuery] = useState("");
   const filteredLinkChecks = linkChecks.filter((item) => {
     const movie = movies.find((m) => m.id === item.id);
@@ -602,8 +603,12 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
           }
         }));
 
-        const updatedIds = new Set(results.map((item) => item.id));
-        accumulated = [...accumulated.filter((item) => !updatedIds.has(item.id)), ...results];
+        // Resultados inconclusivos ("não informado") também são classificados como expirados.
+        const normalizedResults = results.map((item) => item.status === "unknown"
+          ? { ...item, status: "expired" as const, message: `Não foi possível confirmar o link: ${item.message}` }
+          : item);
+        const updatedIds = new Set(normalizedResults.map((item) => item.id));
+        accumulated = [...accumulated.filter((item) => !updatedIds.has(item.id)), ...normalizedResults];
         try {
           localStorage.setItem("rickzflix-link-checks", JSON.stringify(accumulated));
         } catch {
@@ -830,7 +835,6 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     <option value="ok">Link funcionando ({linkChecks.filter((item) => item.status === "ok").length})</option>
                     <option value="expired">Link expirado / indisponível ({linkChecks.filter((item) => item.status === "expired").length})</option>
                     <option value="warning">Atenção ({linkChecks.filter((item) => item.status === "warning").length})</option>
-                    <option value="unknown">Não confirmado ({linkChecks.filter((item) => item.status === "unknown").length})</option>
                     </select>
                   </div>
                 </div>
@@ -850,7 +854,6 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                     <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "ok").length}</p><p className="text-xs text-muted-foreground">Links funcionando</p></div>
                     <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "expired").length}</p><p className="text-xs text-muted-foreground">Indisponíveis</p></div>
                     <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "warning").length}</p><p className="text-xs text-muted-foreground">Atenção</p></div>
-                    <div className="admin-movie-row rounded-lg p-3"><p className="text-xl font-semibold tabular-nums">{linkChecks.filter((item) => item.status === "unknown").length}</p><p className="text-xs text-muted-foreground">Não confirmados</p></div>
                   </div>
                 )}
                 {!checkingLinks && movies.length === 0 && <p className="text-sm text-muted-foreground">Nenhum filme cadastrado para verificar.</p>}
