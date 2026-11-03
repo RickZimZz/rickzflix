@@ -558,10 +558,9 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
           </form>
         ) : (
           <>
-            <div className="admin-stats mb-5 grid grid-cols-3 gap-2">
+            <div className="admin-stats mb-5 grid grid-cols-2 gap-2">
               <div className="admin-stat"><span className="admin-stat-icon">▣</span><span className="admin-stat-value">{movies.length}</span><span className="admin-stat-label">Filmes no catálogo</span></div>
               <div className="admin-stat"><span className="admin-stat-icon admin-good">●</span><span className="admin-stat-value">{reports.length}</span><span className="admin-stat-label">Filmes reportados</span></div>
-              <div className="admin-stat"><span className="admin-stat-icon admin-alert">!</span><span className="admin-stat-value">{reports.length}</span><span className="admin-stat-label">Reportes recebidos</span></div>
             </div>
             <div className="admin-tabs mb-6 grid grid-cols-3 gap-2">
               <button type="button" onClick={() => setActiveTab("cadastro")} className={activeTab === "cadastro" ? "admin-tab admin-tab-active" : "admin-tab"}><span>＋</span> Cadastrar</button>
@@ -675,7 +674,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
                   ))}
                 </div>
               </section>
-            )}}
+            )}
           </>
         )}
       </div>
