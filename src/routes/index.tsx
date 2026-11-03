@@ -311,13 +311,15 @@ function testBrowserPlayback(videoUrl: string): Promise<BrowserPlaybackResult> {
     });
     video.onerror = () => {
       const code = video.error?.code;
-      const detail = code === 3 || code === 4
-        ? "Formato, codec ou origem não suportado pelo player deste navegador"
-        : "O player do navegador não conseguiu receber os dados do vídeo";
+      const detail = code === 3
+        ? "Falha ao decodificar o vídeo: arquivo ou codec incompatível"
+        : code === 4
+          ? "O navegador não conseguiu usar esta origem ou formato de vídeo"
+          : "Falha de rede ao carregar o vídeo: link indisponível ou servidor não respondeu";
       finish({
-        // Um erro de mídia não prova que o link expirou: também pode ser
-        // bloqueio do host, rede, codec ou política do navegador.
-        status: "warning",
+        // Se o elemento HTML5 emitiu erro, o player não conseguiu reproduzir
+        // este endereço. O motivo técnico fica visível na mensagem do log.
+        status: "expired",
         message: detail,
       });
     };
@@ -328,13 +330,21 @@ function testBrowserPlayback(videoUrl: string): Promise<BrowserPlaybackResult> {
     video.src = embedded.src;
     video.load();
     video.play().catch(() => {
-      // Se o navegador bloquear autoplay mesmo sem som, não declarar link quebrado.
-      if (!settled) finish({
-        status: "unknown",
-        message: loaded
-          ? "O vídeo carregou, mas o navegador bloqueou o início automático da reprodução"
-          : "O navegador não permitiu iniciar o teste de reprodução",
-      });
+      // Se já existe erro nativo de mídia, classificar como indisponível.
+      // Sem erro nativo, manter como inconclusivo para não gerar falso positivo.
+      if (!settled && video.error) {
+        finish({
+          status: "expired",
+          message: "O player não conseguiu abrir este vídeo (falha de mídia ou origem indisponível)",
+        });
+      } else if (!settled) {
+        finish({
+          status: "unknown",
+          message: loaded
+            ? "O vídeo carregou, mas o navegador bloqueou o início automático da reprodução"
+            : "O navegador não permitiu iniciar o teste de reprodução",
+        });
+      }
     });
   });
 }
@@ -538,7 +548,7 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
 
     // Testa em pequenos lotes no próprio navegador, usando o mesmo tipo
     // de elemento e os mesmos eventos de reprodução do player principal.
-    const batchSize = 3;
+    const batchSize = 5;
     let completed = 0;
     try {
       for (let i = 0; i < movies.length; i += batchSize) {
