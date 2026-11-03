@@ -210,12 +210,106 @@
   .vp-btn { display: grid; place-items: center; min-width: 2.4rem; height: 2.4rem; border-radius: 999px; transition: background .15s, transform .15s; }
   .vp-btn:hover { background: oklch(1 0 0 / 14%); transform: scale(1.06); }
   .vp-rate { padding: 0 .6rem; font-size: .8rem; font-weight: 800; }
-  .vp-progress { position: relative; height: 1.1rem; margin-bottom: .25rem; display: flex; align-items: center; }
-  .vp-progress::before { content: ""; position: absolute; inset-inline: 0; height: 4px; border-radius: 999px; transition: height .15s; background: linear-gradient(to right, var(--primary) var(--p), oklch(1 0 0 / 40%) var(--p), oklch(1 0 0 / 40%) var(--b), oklch(1 0 0 / 18%) var(--b)); }
-  .vp-progress:hover::before { height: 7px; }
-  .vp-progress input, .vp-vol input { position: relative; width: 100%; appearance: none; background: transparent; cursor: pointer; margin: 0; }
-  .vp-progress input::-webkit-slider-thumb, .vp-vol input::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 999px; background: var(--primary); box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 30%, transparent); }
-  .vp-progress input::-moz-range-thumb, .vp-vol input::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 999px; background: var(--primary); }
+  .vp-progress {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 1.5rem;
+    margin: 0 0 .35rem;
+    padding: 0 .1rem;
+    border-radius: 999px;
+    isolation: isolate;
+    touch-action: pan-y;
+  }
+  .vp-progress::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset-inline: 0;
+    height: 5px;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      oklch(0.62 0.23 25) 0%,
+      oklch(0.62 0.23 25) var(--p),
+      oklch(1 0 0 / 42%) var(--p),
+      oklch(1 0 0 / 42%) var(--b),
+      oklch(1 0 0 / 20%) var(--b),
+      oklch(1 0 0 / 20%) 100%
+    );
+    box-shadow: 0 0 10px color-mix(in oklab, oklch(0.62 0.23 25) 28%, transparent);
+    transition: height .18s ease, box-shadow .18s ease;
+  }
+  .vp-progress:hover::before,
+  .vp-progress:focus-within::before {
+    height: 7px;
+    box-shadow: 0 0 14px color-mix(in oklab, oklch(0.62 0.23 25) 42%, transparent);
+  }
+  .vp-progress input {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 1.5rem;
+    margin: 0;
+    padding: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+  }
+  .vp-progress input::-webkit-slider-runnable-track {
+    height: 7px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+  }
+  .vp-progress input::-moz-range-track {
+    height: 7px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+  }
+  .vp-progress input::-webkit-slider-thumb {
+    width: 13px;
+    height: 13px;
+    margin-top: -3px;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 2px solid oklch(1 0 0);
+    border-radius: 999px;
+    background: oklch(0.62 0.23 25);
+    box-shadow: 0 0 0 3px color-mix(in oklab, oklch(0.62 0.23 25) 28%, transparent), 0 1px 5px oklch(0 0 0 / 45%);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .vp-progress input::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    border: 2px solid oklch(1 0 0);
+    border-radius: 999px;
+    background: oklch(0.62 0.23 25);
+    box-shadow: 0 0 0 3px color-mix(in oklab, oklch(0.62 0.23 25) 28%, transparent), 0 1px 5px oklch(0 0 0 / 45%);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .vp-progress input:hover::-webkit-slider-thumb,
+  .vp-progress input:focus-visible::-webkit-slider-thumb {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 5px color-mix(in oklab, oklch(0.62 0.23 25) 30%, transparent), 0 1px 5px oklch(0 0 0 / 45%);
+  }
+  .vp-progress input:hover::-moz-range-thumb,
+  .vp-progress input:focus-visible::-moz-range-thumb {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 5px color-mix(in oklab, oklch(0.62 0.23 25) 30%, transparent), 0 1px 5px oklch(0 0 0 / 45%);
+  }
+  .vp-progress input:focus-visible {
+    outline: 2px solid oklch(1 0 0 / 80%);
+    outline-offset: 4px;
+    border-radius: 999px;
+  }
+  .vp-vol input { position: relative; width: 100%; appearance: none; background: transparent; cursor: pointer; margin: 0; }
+  .vp-vol input::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 999px; background: var(--primary); box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 30%, transparent); }
+  .vp-vol input::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 999px; background: var(--primary); }
   .vp-vol { display: flex; align-items: center; }
   .vp-vol input { width: 0; opacity: 0; transition: width .2s, opacity .2s; height: 4px; border-radius: 999px; background: linear-gradient(to right, var(--vp-fg) var(--p), oklch(1 0 0 / 25%) var(--p)); }
   .vp-vol:hover input, .vp-vol:focus-within input { width: 5rem; opacity: 1; margin-right: .3rem; }
