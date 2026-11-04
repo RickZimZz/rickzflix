@@ -1,6 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  clearWatchProgressInDb,
+  getDeviceId,
+  loadWatchProgress,
+  readCachedProgress,
+  saveWatchProgressToDb,
+  writeCachedProgress,
+  type WatchProgress,
+} from "@/lib/watch-progress";
 import { addCategory, addMovie, deleteCategory, deleteMovie, reorderCategories, updateMovie, verifyAdmin } from "@/lib/movies.functions";
 
 export const Route = createFileRoute("/")({
@@ -30,8 +39,6 @@ type Movie = {
 
 const RATINGS = ["Livre", "10", "12", "14", "16", "18"];
 type Category = { id: string; name: string; position: number };
-type WatchProgress = { movieId: string; currentTime: number; duration: number; updatedAt: number };
-const WATCH_PROGRESS_KEY = "rickzflix-watch-progress";
 function shuffle<T>(arr: T[]) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; }
@@ -68,23 +75,30 @@ function Index() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [dark, setDark] = useState(true);
   const [onlineCount, setOnlineCount] = useState(0);
-  const [watchProgress, setWatchProgress] = useState<WatchProgress[]>(() => {
-    try {
-      const saved = localStorage.getItem(WATCH_PROGRESS_KEY);
-      return saved ? JSON.parse(saved) as WatchProgress[] : [];
-    } catch {
-      return [];
-    }
-  });
+  const [watchProgress, setWatchProgress] = useState<WatchProgress[]>(() => readCachedProgress());
+  const deviceIdRef = useRef("");
+  const pendingWrite = useRef<{ movieId: string; currentTime: number; duration: number } | null>(null);
+  const lastWriteAt = useRef(0);
+
+  // Manda a posição pendente para o banco.
+  const flushWatchProgress = () => {
+    const pending = pendingWrite.current;
+    if (!pending) return;
+    pendingWrite.current = null;
+    lastWriteAt.current = Date.now();
+    void saveWatchProgressToDb(deviceIdRef.current, pending.movieId, pending.currentTime, pending.duration);
+  };
 
   const saveWatchProgress = (movieId: string, currentTime: number, duration: number) => {
     if (!Number.isFinite(currentTime) || !Number.isFinite(duration) || duration <= 0) return;
     if (currentTime >= duration - 30) {
+      pendingWrite.current = null;
       setWatchProgress((previous) => {
         const next = previous.filter((item) => item.movieId !== movieId);
-        try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify(next)); } catch {}
+        writeCachedProgress(next);
         return next;
       });
+      void clearWatchProgressInDb(deviceIdRef.current, movieId);
       return;
     }
     if (currentTime < 5) return;
@@ -93,20 +107,27 @@ function Index() {
         ...previous.filter((item) => item.movieId !== movieId),
         { movieId, currentTime, duration, updatedAt: Date.now() },
       ].sort((a, b) => b.updatedAt - a.updatedAt);
-      try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify(next)); } catch {}
+      writeCachedProgress(next);
       return next;
     });
+    pendingWrite.current = { movieId, currentTime, duration };
+    // Grava no banco a cada 15 segundos; pausar, trocar de filme, fechar o
+    // player ou sair da página grava na hora.
+    if (Date.now() - lastWriteAt.current >= 15000) flushWatchProgress();
   };
 
   const removeWatchProgress = (movieId: string) => {
+    if (pendingWrite.current?.movieId === movieId) pendingWrite.current = null;
     setWatchProgress((previous) => {
       const next = previous.filter((item) => item.movieId !== movieId);
-      try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify(next)); } catch {}
+      writeCachedProgress(next);
       return next;
     });
+    void clearWatchProgressInDb(deviceIdRef.current, movieId);
   };
 
   const openMovie = (movie: Movie) => {
+    flushWatchProgress();
     setPlaying(movie);
   };
   useEffect(() => {
@@ -128,6 +149,19 @@ function Index() {
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    deviceIdRef.current = getDeviceId();
+    void loadWatchProgress(deviceIdRef.current).then(setWatchProgress);
+    const flush = () => flushWatchProgress();
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      flushWatchProgress();
+    };
+  }, []);
 
   useEffect(() => {
     // Supabase Presence counts active site sessions across browsers and devices.
@@ -292,7 +326,7 @@ function Index() {
           movies={movies}
           initialTime={watchProgress.find((item) => item.movieId === playing.id)?.currentTime ?? 0}
           onProgress={(currentTime, duration) => saveWatchProgress(playing.id, currentTime, duration)}
-          onClose={() => setPlaying(null)}
+          onClose={() => { flushWatchProgress(); setPlaying(null); }}
           onPick={openMovie}
         />
       )}
