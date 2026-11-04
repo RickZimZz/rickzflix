@@ -238,7 +238,7 @@ function Index() {
                         <img src={movie.cover_url} alt={movie.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent p-3 pt-10 text-white">
                           <p className="line-clamp-2 text-left text-sm font-semibold">{movie.title}</p>
-                          <p className="mt-1 text-left text-xs text-white/75">{fmt(progress.currentTime)} restantes? </p>
+                          <p className="mt-1 text-left text-xs text-white/75">Parou em {fmt(progress.currentTime)}</p>
                         </div>
                         <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/25">
                           <div className="h-full bg-primary" style={{ width: `${percentage}%` }} />
@@ -541,7 +541,7 @@ function VideoPlayer({ src, title, initialTime = 0, onProgress }: { src: string;
         onWaiting={() => setWaiting(true)} onPlaying={() => setWaiting(false)} onCanPlay={() => setWaiting(false)}
         onError={() => { setError(true); setWaiting(false); }}
         onTimeUpdate={(e) => { setTime(e.currentTarget.currentTime); saveCurrentProgress(); }}
-        onEnded={() => onProgress(0, 0)}
+        onEnded={(event) => onProgress(event.currentTarget.duration, event.currentTarget.duration)}
         onProgress={(e) => { const b = e.currentTarget.buffered; if (b.length) setBuffered(b.end(b.length - 1)); }}
         onLoadedMetadata={(e) => {
           const video = e.currentTarget;
