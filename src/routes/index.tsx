@@ -326,7 +326,7 @@ function Index() {
           movies={movies}
           initialTime={watchProgress.find((item) => item.movieId === playing.id)?.currentTime ?? 0}
           onProgress={(currentTime, duration) => saveWatchProgress(playing.id, currentTime, duration)}
-          onClose={() => setPlaying(null)}
+          onClose={() => { flushWatchProgress(); setPlaying(null); }}
           onPick={openMovie}
         />
       )}
