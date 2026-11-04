@@ -74,12 +74,65 @@ export type Database = {
         }
         Relationships: []
       }
+      watch_progress: {
+        Row: {
+          device_id: string
+          duration_seconds: number
+          movie_id: string
+          position_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          device_id: string
+          duration_seconds?: number
+          movie_id: string
+          position_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          device_id?: string
+          duration_seconds?: number
+          movie_id?: string
+          position_seconds?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_progress_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      clear_watch_progress: {
+        Args: { p_device: string; p_movie: string }
+        Returns: undefined
+      }
+      list_watch_progress: {
+        Args: { p_device: string }
+        Returns: {
+          duration_seconds: number
+          movie_id: string
+          position_seconds: number
+          updated_at: string
+        }[]
+      }
+      save_watch_progress: {
+        Args: {
+          p_device: string
+          p_duration_seconds: number
+          p_movie: string
+          p_position_seconds: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
