@@ -30,6 +30,8 @@ type Movie = {
 
 const RATINGS = ["Livre", "10", "12", "14", "16", "18"];
 type Category = { id: string; name: string; position: number };
+type WatchProgress = { movieId: string; currentTime: number; duration: number; updatedAt: number };
+const WATCH_PROGRESS_KEY = "rickzflix-watch-progress";
 function shuffle<T>(arr: T[]) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; }
@@ -66,6 +68,43 @@ function Index() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [dark, setDark] = useState(true);
   const [onlineCount, setOnlineCount] = useState(0);
+  const [watchProgress, setWatchProgress] = useState<WatchProgress[]>(() => {
+    try {
+      const saved = localStorage.getItem(WATCH_PROGRESS_KEY);
+      return saved ? JSON.parse(saved) as WatchProgress[] : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const saveWatchProgress = (movieId: string, currentTime: number, duration: number) => {
+    if (!Number.isFinite(currentTime) || !Number.isFinite(duration) || duration <= 0) return;
+    if (currentTime >= duration - 30) {
+      setWatchProgress((previous) => {
+        const next = previous.filter((item) => item.movieId !== movieId);
+        try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify(next)); } catch {}
+        return next;
+      });
+      return;
+    }
+    if (currentTime < 5) return;
+    setWatchProgress((previous) => {
+      const next = [
+        ...previous.filter((item) => item.movieId !== movieId),
+        { movieId, currentTime, duration, updatedAt: Date.now() },
+      ].sort((a, b) => b.updatedAt - a.updatedAt);
+      try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const removeWatchProgress = (movieId: string) => {
+    setWatchProgress((previous) => {
+      const next = previous.filter((item) => item.movieId !== movieId);
+      try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   const openMovie = (movie: Movie) => {
     setPlaying(movie);
@@ -181,6 +220,42 @@ function Index() {
       )}
 
       <main className="space-y-10 pb-16">
+        {showHero && watchProgress.length > 0 && (
+          <section className="pt-2">
+            <div className="mb-3 flex items-center justify-between px-5 md:px-10">
+              <h3 className="font-display text-2xl tracking-wide">Continuar assistindo</h3>
+              <span className="text-xs text-muted-foreground">{watchProgress.length} {watchProgress.length === 1 ? "título" : "títulos"}</span>
+            </div>
+            <div className="flex gap-4 overflow-x-auto px-5 pb-2 md:px-10">
+              {watchProgress
+                .map((progress) => ({ progress, movie: movies.find((item) => item.id === progress.movieId) }))
+                .filter((item): item is { progress: WatchProgress; movie: Movie } => !!item.movie)
+                .map(({ progress, movie }) => {
+                  const percentage = Math.min(100, Math.max(0, (progress.currentTime / progress.duration) * 100));
+                  return (
+                    <div key={movie.id} className="group relative w-40 flex-none sm:w-48">
+                      <button onClick={() => openMovie(movie)} className="movie-card group block w-full text-left" aria-label={`Continuar ${movie.title}`}>
+                        <img src={movie.cover_url} alt={movie.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent p-3 pt-10 text-white">
+                          <p className="line-clamp-2 text-left text-sm font-semibold">{movie.title}</p>
+                          <p className="mt-1 text-left text-xs text-white/75">{fmt(progress.currentTime)} restantes? </p>
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/25">
+                          <div className="h-full bg-primary" style={{ width: `${percentage}%` }} />
+                        </div>
+                      </button>
+                      <button
+                        className="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-2 py-1 text-xs text-white opacity-100 transition hover:bg-primary sm:opacity-0 sm:group-hover:opacity-100"
+                        onClick={() => removeWatchProgress(movie.id)}
+                        aria-label={`Remover ${movie.title} de continuar assistindo`}
+                        title="Remover da lista"
+                      >✕</button>
+                    </div>
+                  );
+                })}
+            </div>
+          </section>
+        )}
         {!loading && movies.length > 0 && grouped.length === 0 && (
           <p className="px-5 text-muted-foreground md:px-10">Nenhum filme encontrado.</p>
         )}
@@ -211,7 +286,16 @@ function Index() {
           <span className="site-online-label">{onlineCount === 1 ? "pessoa online" : "pessoas online"}</span>
         </div>
       </footer>
-      {playing && <Player movie={playing} movies={movies} onClose={() => setPlaying(null)} onPick={openMovie} />}
+      {playing && (
+        <Player
+          movie={playing}
+          movies={movies}
+          initialTime={watchProgress.find((item) => item.movieId === playing.id)?.currentTime ?? 0}
+          onProgress={(currentTime, duration) => saveWatchProgress(playing.id, currentTime, duration)}
+          onClose={() => setPlaying(null)}
+          onPick={openMovie}
+        />
+      )}
       {adminOpen && <AdminPanel movies={movies} categories={cats} onClose={() => setAdminOpen(false)} onChange={load} />}
     </div>
   );
@@ -360,7 +444,7 @@ function testBrowserPlayback(videoUrl: string, attempt = 0): Promise<BrowserPlay
   });
 }
 
-function VideoPlayer({ src, title }: { src: string; title: string }) {
+function VideoPlayer({ src, title, initialTime = 0, onProgress }: { src: string; title: string; initialTime?: number; onProgress: (currentTime: number, duration: number) => void }) {
   const wrap = useRef<HTMLDivElement>(null);
   const vid = useRef<HTMLVideoElement>(null);
   const hideT = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -376,6 +460,18 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
   const [error, setError] = useState(false);
   const [show, setShow] = useState(true);
   const [flash, setFlash] = useState<string | null>(null);
+  const lastProgressSave = useRef(0);
+  const restorePending = useRef(true);
+
+  const saveCurrentProgress = (force = false) => {
+    const video = vid.current;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    const now = Date.now();
+    if (force || now - lastProgressSave.current >= 5000) {
+      lastProgressSave.current = now;
+      onProgress(video.currentTime, video.duration);
+    }
+  };
 
   const poke = () => {
     setShow(true);
@@ -441,12 +537,21 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
       <video
         ref={vid} src={src} autoPlay playsInline preload="auto"
         className="vp-video" onClick={() => { if (!show && !paused) poke(); else toggle(); }} onDoubleClick={full}
-        onPlay={() => { setPaused(false); poke(); }} onPause={() => { setPaused(true); setShow(true); }}
+        onPlay={() => { setPaused(false); poke(); }} onPause={() => { setPaused(true); setShow(true); saveCurrentProgress(true); }}
         onWaiting={() => setWaiting(true)} onPlaying={() => setWaiting(false)} onCanPlay={() => setWaiting(false)}
         onError={() => { setError(true); setWaiting(false); }}
-        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+        onTimeUpdate={(e) => { setTime(e.currentTarget.currentTime); saveCurrentProgress(); }}
+        onEnded={() => onProgress(0, 0)}
         onProgress={(e) => { const b = e.currentTarget.buffered; if (b.length) setBuffered(b.end(b.length - 1)); }}
-        onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
+        onLoadedMetadata={(e) => {
+          const video = e.currentTarget;
+          setDur(video.duration);
+          if (restorePending.current && initialTime > 0 && initialTime < video.duration - 30) {
+            video.currentTime = initialTime;
+            setTime(initialTime);
+          }
+          restorePending.current = false;
+        }}
       />
       {waiting && !error && <div className="vp-center"><div className="vp-spinner" /></div>}
       {error && (
@@ -484,7 +589,7 @@ function VideoPlayer({ src, title }: { src: string; title: string }) {
   );
 }
 
-function Player({ movie, movies, onClose, onPick }: { movie: Movie; movies: Movie[]; onClose: () => void; onPick: (m: Movie) => void }) {
+function Player({ movie, movies, initialTime, onProgress, onClose, onPick }: { movie: Movie; movies: Movie[]; initialTime: number; onProgress: (currentTime: number, duration: number) => void; onClose: () => void; onPick: (m: Movie) => void }) {
   const e = embedUrl(movie.video_url);
   const suggestions = useMemo(
     () => movies.filter((m) => m.id !== movie.id).sort(() => Math.random() - 0.5).slice(0, 8),
@@ -499,7 +604,7 @@ function Player({ movie, movies, onClose, onPick }: { movie: Movie; movies: Movi
             <iframe key={movie.id} src={e.src} className="h-full w-full" allow="autoplay; fullscreen; encrypted-media" allowFullScreen title={movie.title} />
           </div>
         ) : (
-          <VideoPlayer key={movie.id} src={e.src} title={movie.title} />
+          <VideoPlayer key={movie.id} src={e.src} title={movie.title} initialTime={initialTime} onProgress={onProgress} />
         )}
         <div className="mt-5">
           <div className="flex flex-wrap items-center gap-2"><RatingBadge r={movie.rating} /><span className="text-sm text-muted-foreground">{movie.category}{movie.year ? ` (${movie.year})` : ""}</span></div>
