@@ -1,6 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  clearWatchProgressInDb,
+  getDeviceId,
+  loadWatchProgress,
+  readCachedProgress,
+  saveWatchProgressToDb,
+  writeCachedProgress,
+  type WatchProgress,
+} from "@/lib/watch-progress";
 import { addCategory, addMovie, deleteCategory, deleteMovie, reorderCategories, updateMovie, verifyAdmin } from "@/lib/movies.functions";
 
 export const Route = createFileRoute("/")({
@@ -30,8 +39,6 @@ type Movie = {
 
 const RATINGS = ["Livre", "10", "12", "14", "16", "18"];
 type Category = { id: string; name: string; position: number };
-type WatchProgress = { movieId: string; currentTime: number; duration: number; updatedAt: number };
-const WATCH_PROGRESS_KEY = "rickzflix-watch-progress";
 function shuffle<T>(arr: T[]) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; }
