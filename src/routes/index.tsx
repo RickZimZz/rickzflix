@@ -39,6 +39,17 @@ type Movie = {
 
 const RATINGS = ["Livre", "10", "12", "14", "16", "18"];
 type Category = { id: string; name: string; position: number };
+function normalizeSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " e ")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 function shuffle<T>(arr: T[]) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; }
@@ -196,8 +207,11 @@ function Index() {
 
   const categories = useMemo(() => ["Todos", ...cats.map((c) => c.name).filter((n) => movies.some((m) => m.category === n))], [movies, cats]);
   const grouped = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const list = shuffled.filter((m) => (filter === "Todos" || m.category === filter) && (!q || m.title.toLowerCase().includes(q)));
+    const q = normalizeSearch(query);
+    const list = shuffled.filter((m) => {
+      const title = normalizeSearch(m.title);
+      return (filter === "Todos" || m.category === filter) && (!q || title.includes(q));
+    });
     if (filter !== "Todos" || q) return list.length ? [[filter === "Todos" ? "Resultados" : filter, list] as [string, Movie[]]] : [];
     const map = new Map<string, Movie[]>();
     cats.forEach((c) => map.set(c.name, []));
@@ -711,10 +725,14 @@ function AdminPanel({ movies, categories, onClose, onChange }: { movies: Movie[]
   const filteredLinkChecks = linkChecks.filter((item) => {
     const movie = movies.find((m) => m.id === item.id);
     const matchesStatus = logFilter === "todos" || item.status === logFilter;
-    const matchesTitle = !logQuery.trim() || movie?.title.toLowerCase().includes(logQuery.trim().toLowerCase());
+    const matchesTitle = !normalizeSearch(logQuery) || (movie ? normalizeSearch(movie.title).includes(normalizeSearch(logQuery)) : false);
     return matchesStatus && matchesTitle;
   });
-  const adminList = movies.filter((m) => m.title.toLowerCase().includes(adminQuery.trim().toLowerCase()) || m.category.toLowerCase().includes(adminQuery.trim().toLowerCase()));
+  const normalizedAdminQuery = normalizeSearch(adminQuery);
+  const adminList = movies.filter((m) =>
+    normalizeSearch(m.title).includes(normalizedAdminQuery) ||
+    normalizeSearch(m.category).includes(normalizedAdminQuery)
+  );
 
   const runLinkCheck = async () => {
     if (checkingLinks || movies.length === 0) return;
