@@ -260,7 +260,7 @@ function Index() {
       )}
 
       {movies.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto px-5 py-6 md:px-10">
+        <div className="catalog-scrollbar flex gap-2 overflow-x-auto px-5 py-6 md:px-10">
           {categories.map((c) => (
             <button key={c} onClick={() => setFilter(c)} className={c === filter ? "chip chip-active" : "chip"}>{c}</button>
           ))}
@@ -274,7 +274,7 @@ function Index() {
               <h3 className="font-display text-2xl tracking-wide">Continuar assistindo</h3>
               <span className="text-xs text-muted-foreground">{watchProgress.length} {watchProgress.length === 1 ? "título" : "títulos"}</span>
             </div>
-            <div className="flex gap-4 overflow-x-auto px-5 pb-2 md:px-10">
+            <div className="catalog-scrollbar flex gap-4 overflow-x-auto px-5 pb-2 md:px-10">
               {watchProgress
                 .map((progress) => ({ progress, movie: movies.find((item) => item.id === progress.movieId) }))
                 .filter((item): item is { progress: WatchProgress; movie: Movie } => !!item.movie)
@@ -310,7 +310,7 @@ function Index() {
         {grouped.map(([cat, list]) => (
           <section key={cat}>
             <h3 className="px-5 font-display text-2xl tracking-wide md:px-10">{cat}</h3>
-            <div className={showHero ? "mt-3 flex gap-4 overflow-x-auto px-5 pb-2 md:px-10" : "mt-3 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-4 px-5 md:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] md:px-10"}>
+            <div className={showHero ? "catalog-scrollbar mt-3 flex gap-4 overflow-x-auto px-5 pb-2 md:px-10" : "mt-3 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-4 px-5 md:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] md:px-10"}>
               {list.map((m) => (
                 <button key={m.id} onClick={() => void openMovie(m)} className={showHero ? "movie-card group" : "movie-card movie-card-grid group"}>
                   <img src={m.cover_url} alt={m.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
