@@ -488,3 +488,40 @@
     height: 2px;
   }
 }
+
+/* Desktop arrows for horizontal catalog carousels */
+.catalog-carousel-arrow {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  display: none;
+  width: 42px;
+  height: 58px;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 9px;
+  color: white;
+  background: rgb(12 12 15 / 82%);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 35%);
+  opacity: 0;
+  transition: opacity 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  cursor: pointer;
+}
+.catalog-carousel-arrow-left { left: 8px; }
+.catalog-carousel-arrow-right { right: 8px; }
+.catalog-carousel-arrow:hover {
+  background: #650909;
+  border-color: rgb(255 255 255 / 20%);
+}
+.catalog-carousel:hover .catalog-carousel-arrow,
+.catalog-carousel:focus-within .catalog-carousel-arrow {
+  opacity: 1;
+}
+@media (min-width: 768px) {
+  .catalog-carousel-arrow { display: flex; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .catalog-carousel-arrow { transition: none; }
+}
