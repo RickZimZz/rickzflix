@@ -461,49 +461,30 @@
   .category-order-btn { width: 2rem; height: 2rem; }
 }
 
-/* RickzFlix custom horizontal catalog scrollbar */
+/* Minimal dark-red scrollbar for horizontal catalog rows */
 .catalog-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklab, var(--primary) 78%, #ff3434) color-mix(in oklab, var(--foreground) 9%, transparent);
-  scrollbar-gutter: stable;
+  scrollbar-color: #650909 transparent;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
 }
 .catalog-scrollbar::-webkit-scrollbar {
-  height: 6px;
+  height: 2px;
 }
 .catalog-scrollbar::-webkit-scrollbar-track {
-  margin-inline: 1.25rem;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--foreground) 9%, transparent);
+  background: transparent;
 }
 .catalog-scrollbar::-webkit-scrollbar-thumb {
-  min-width: 42px;
-  border: 1px solid color-mix(in oklab, var(--primary) 30%, transparent);
+  border: 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, color-mix(in oklab, var(--primary) 82%, #ff3434), var(--primary));
-  box-shadow: 0 0 8px color-mix(in oklab, var(--primary) 24%, transparent);
+  background: #650909;
+  box-shadow: none;
 }
 .catalog-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #ff3434;
-  box-shadow: 0 0 12px color-mix(in oklab, var(--primary) 42%, transparent);
-}
-.catalog-scrollbar:focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--primary) 65%, transparent);
-  outline-offset: 3px;
+  background: #7a1010;
 }
 @media (max-width: 640px) {
   .catalog-scrollbar::-webkit-scrollbar {
-    height: 3px;
+    height: 2px;
   }
-  .catalog-scrollbar::-webkit-scrollbar-track {
-    margin-inline: .75rem;
-  }
-  .catalog-scrollbar::-webkit-scrollbar-thumb {
-    min-width: 28px;
-    box-shadow: none;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .catalog-scrollbar { scroll-behavior: auto; }
 }
