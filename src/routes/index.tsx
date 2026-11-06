@@ -76,6 +76,39 @@ function RatingBadge({ r }: { r: string }) {
   return <span className="rating-badge" data-rating={r}>{r === "Livre" ? "L" : r}</span>;
 }
 
+function CatalogCarousel({ className, children, label }: { className: string; children: import("react").ReactNode; label: string }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scroll = (direction: -1 | 1) => {
+    const element = scrollRef.current;
+    if (!element) return;
+    element.scrollBy({ left: direction * Math.max(320, element.clientWidth * 0.8), behavior: "smooth" });
+  };
+
+  return (
+    <div className="catalog-carousel group/carousel relative">
+      <button
+        type="button"
+        onClick={() => scroll(-1)}
+        aria-label={`Rolar ${label} para a esquerda`}
+        className="catalog-carousel-arrow catalog-carousel-arrow-left"
+      >
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+      </button>
+      <div ref={scrollRef} className={className} aria-label={label}>
+        {children}
+      </div>
+      <button
+        type="button"
+        onClick={() => scroll(1)}
+        aria-label={`Rolar ${label} para a direita`}
+        className="catalog-carousel-arrow catalog-carousel-arrow-right"
+      >
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+      </button>
+    </div>
+  );
+}
+
 function Index() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
@@ -274,7 +307,7 @@ function Index() {
               <h3 className="font-display text-2xl tracking-wide">Continuar assistindo</h3>
               <span className="text-xs text-muted-foreground">{watchProgress.length} {watchProgress.length === 1 ? "título" : "títulos"}</span>
             </div>
-            <div className="catalog-scrollbar flex gap-4 overflow-x-auto px-5 pb-2 md:px-10">
+            <CatalogCarousel label="Continuar assistindo" className="catalog-scrollbar flex gap-4 overflow-x-auto px-5 pb-2 md:px-10">
               {watchProgress
                 .map((progress) => ({ progress, movie: movies.find((item) => item.id === progress.movieId) }))
                 .filter((item): item is { progress: WatchProgress; movie: Movie } => !!item.movie)
@@ -301,7 +334,7 @@ function Index() {
                     </div>
                   );
                 })}
-            </div>
+            </CatalogCarousel>
           </section>
         )}
         {!loading && movies.length > 0 && grouped.length === 0 && (
@@ -310,17 +343,31 @@ function Index() {
         {grouped.map(([cat, list]) => (
           <section key={cat}>
             <h3 className="px-5 font-display text-2xl tracking-wide md:px-10">{cat}</h3>
-            <div className={showHero ? "catalog-scrollbar mt-3 flex gap-4 overflow-x-auto px-5 pb-2 md:px-10" : "mt-3 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-4 px-5 md:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] md:px-10"}>
-              {list.map((m) => (
-                <button key={m.id} onClick={() => void openMovie(m)} className={showHero ? "movie-card group" : "movie-card movie-card-grid group"}>
-                  <img src={m.cover_url} alt={m.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                  <div className="movie-card-info">
-                    <div className="flex items-center gap-2"><RatingBadge r={m.rating} /></div>
-                    <p className="mt-1 text-left text-sm font-semibold">{m.title}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
+            {showHero ? (
+              <CatalogCarousel label={cat} className="catalog-scrollbar mt-3 flex gap-4 overflow-x-auto px-5 pb-2 md:px-10">
+                {list.map((m) => (
+                  <button key={m.id} onClick={() => void openMovie(m)} className="movie-card group">
+                    <img src={m.cover_url} alt={m.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div className="movie-card-info">
+                      <div className="flex items-center gap-2"><RatingBadge r={m.rating} /></div>
+                      <p className="mt-1 text-left text-sm font-semibold">{m.title}</p>
+                    </div>
+                  </button>
+                ))}
+              </CatalogCarousel>
+            ) : (
+              <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-4 px-5 md:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] md:px-10">
+                {list.map((m) => (
+                  <button key={m.id} onClick={() => void openMovie(m)} className="movie-card movie-card-grid group">
+                    <img src={m.cover_url} alt={m.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div className="movie-card-info">
+                      <div className="flex items-center gap-2"><RatingBadge r={m.rating} /></div>
+                      <p className="mt-1 text-left text-sm font-semibold">{m.title}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
         ))}
       </main>
